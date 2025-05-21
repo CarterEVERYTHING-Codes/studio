@@ -14,6 +14,7 @@ const cardPaymentSchema = z.object({
 });
 
 const barcodePaymentSchema = z.object({
+  purchaseName: z.string().min(1, "Purchase name is required."),
   barcode: z.string().length(8, "Barcode must be 8 digits."),
   cvv: z.string().min(3, "CVV must be 3-4 digits.").max(4, "CVV must be 3-4 digits."),
   amount: z.number().positive("Amount must be positive."),
@@ -43,15 +44,15 @@ export async function makeCardPaymentAction(values: z.infer<typeof cardPaymentSc
   const newTransaction: Transaction = {
     id: `txn-${Date.now()}`,
     date: new Date().toISOString(),
-    description: `Purchase at Business ID: ${businessAccountId.slice(0,8)}...`,
+    description: `Purchase at Business ID: ${businessAccountId.slice(0,8)}...`, // Retaining generic for card for now
     amount: -amount, // Purchase is a deduction
     type: "purchase",
     fromAccountId: targetAccount.id,
-    toAccountId: businessAccountId, // Money goes to the business account (conceptually)
+    toAccountId: businessAccountId, 
   };
 
-  addMockTransaction(newTransaction); // This will update balances
-  return { success: true, message: "Purchase successful!", transaction: newTransaction };
+  addMockTransaction(newTransaction);
+  return { success: true, message: "Card purchase successful!", transaction: newTransaction };
 }
 
 export async function makeBarcodePaymentAction(values: z.infer<typeof barcodePaymentSchema>): Promise<{ success: boolean; message: string; transaction?: Transaction }> {
@@ -60,14 +61,14 @@ export async function makeBarcodePaymentAction(values: z.infer<typeof barcodePay
     return { success: false, message: "Invalid input: " + JSON.stringify(validation.error.flatten().fieldErrors) };
   }
 
-  const { barcode, cvv, amount, businessAccountId } = validation.data;
+  const { purchaseName, barcode, cvv, amount, businessAccountId } = validation.data;
 
   const targetAccount = getAccountByBarcode(barcode);
 
   if (!targetAccount) {
     return { success: false, message: "Barcode not found." };
   }
-  if (targetAccount.cvv !== cvv) { // Assuming CVV check for barcode too as per prompt
+  if (targetAccount.cvv !== cvv) { 
     return { success: false, message: "Invalid CVV for the account linked to this barcode." };
   }
   if (targetAccount.balance < amount) {
@@ -77,11 +78,11 @@ export async function makeBarcodePaymentAction(values: z.infer<typeof barcodePay
  const newTransaction: Transaction = {
     id: `txn-${Date.now()}`,
     date: new Date().toISOString(),
-    description: `Purchase via Barcode at Business ID: ${businessAccountId.slice(0,8)}...`,
+    description: `Purchase: ${purchaseName}`, // Using the specific purchase name
     amount: -amount, // Purchase is a deduction
     type: "purchase",
     fromAccountId: targetAccount.id,
-    toAccountId: businessAccountId, // Money goes to the business account (conceptually)
+    toAccountId: businessAccountId, 
   };
 
   addMockTransaction(newTransaction);
@@ -124,12 +125,10 @@ export async function manageFundsAction(values: z.infer<typeof fundManagementSch
         description,
         amount: transactionAmount,
         type: operation,
-        fromAccountId: operation === "withdraw" ? targetAccountId : businessAccountId, // conceptual source
-        toAccountId: operation === "deposit" ? targetAccountId : businessAccountId, // conceptual destination
+        fromAccountId: operation === "withdraw" ? targetAccountId : businessAccountId, 
+        toAccountId: operation === "deposit" ? targetAccountId : businessAccountId, 
     };
     
-    // For mock data, we directly adjust the target account.
-    // In a real system, the business might have its own ledger.
     addMockTransaction(newTransaction); 
 
     return { success: true, message: `${operation.charAt(0).toUpperCase() + operation.slice(1)} successful!`, transaction: newTransaction };

@@ -1,13 +1,12 @@
 
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm, type SubmitHandler } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -15,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { makeCardPaymentAction, makeBarcodePaymentAction } from "@/actions/businessActions";
 import { useAuth } from "@/hooks/useAuth";
-import { ArrowLeft, CreditCard, QrCode, ScanLine, Loader2, AlertCircle, XCircle, CheckCircle } from "lucide-react";
+import { ArrowLeft, CreditCard, QrCode, Loader2, XCircle, CheckCircle, ScanLine, Camera } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
@@ -31,34 +30,98 @@ const cardPaymentSchema = z.object({
 });
 type CardPaymentFormValues = z.infer<typeof cardPaymentSchema>;
 
-const barcodePaymentSchema = z.object({
-  barcode: z.string().length(8, "Barcode must be 8 digits.").regex(/^\d+$/, "Barcode must be digits"),
-  cvv: z.string().min(3, "CVV must be 3-4 digits").max(4, "CVV must be 3-4 digits").regex(/^\d+$/, "CVV must be digits"),
+// Schema for initial purchase details (barcode flow)
+const purchaseDetailsSchema = z.object({
+  purchaseName: z.string().min(1, "Purchase name is required (e.g., Coffee, Books)."),
   amount: z.preprocess(
     (val) => (val === "" ? undefined : Number(val)),
-    z.number({ invalid_type_error: "Amount must be a number."})
+    z.number({ invalid_type_error: "Amount must be a number." })
       .positive("Amount must be a positive number.")
   ),
 });
-type BarcodePaymentFormValues = z.infer<typeof barcodePaymentSchema>;
+type PurchaseDetailsFormValues = z.infer<typeof purchaseDetailsSchema>;
+
+// Schema for barcode and CVV (barcode flow - in dialog)
+const scanConfirmSchema = z.object({
+  barcode: z.string().length(8, "Barcode must be 8 digits.").regex(/^\d+$/, "Barcode must be digits"),
+  cvv: z.string().min(3, "CVV must be 3-4 digits").max(4, "CVV must be 3-4 digits").regex(/^\d+$/, "CVV must be digits"),
+});
+type ScanConfirmFormValues = z.infer<typeof scanConfirmSchema>;
 
 export default function MakePurchasePage() {
   const { toast } = useToast();
   const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [paymentResult, setPaymentResult] = useState<{success: boolean, message: string} | null>(null);
-  const [isBarcodeModalOpen, setIsBarcodeModalOpen] = useState(false);
-
+  
+  const [isScanModalOpen, setIsScanModalOpen] = useState(false);
+  const [currentPurchaseDetails, setCurrentPurchaseDetails] = useState<{ purchaseName: string; amount: number } | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   const cardForm = useForm<CardPaymentFormValues>({
     resolver: zodResolver(cardPaymentSchema),
     defaultValues: { cardNumber: "", expiryDate: "", cvv: "", amount: undefined },
   });
 
-  const barcodeForm = useForm<BarcodePaymentFormValues>({
-    resolver: zodResolver(barcodePaymentSchema),
-    defaultValues: { barcode: "", cvv: "", amount: undefined },
+  const purchaseDetailsForm = useForm<PurchaseDetailsFormValues>({
+    resolver: zodResolver(purchaseDetailsSchema),
+    defaultValues: { purchaseName: "", amount: undefined },
   });
+
+  const scanConfirmForm = useForm<ScanConfirmFormValues>({
+    resolver: zodResolver(scanConfirmSchema),
+    defaultValues: { barcode: "", cvv: "" },
+  });
+
+  useEffect(() => {
+    if (!isScanModalOpen) {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
+      }
+      setHasCameraPermission(null);
+      return;
+    }
+
+    const getCameraPermission = async () => {
+      setHasCameraPermission(null); // Reset while checking
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        toast({
+          variant: 'destructive',
+          title: 'Camera Not Supported',
+          description: 'Your browser does not support camera access. Please enter barcode manually.',
+        });
+        setHasCameraPermission(false);
+        return;
+      }
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        setHasCameraPermission(true);
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+        }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions. You can still enter the barcode manually.',
+        });
+      }
+    };
+
+    getCameraPermission();
+
+    return () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [isScanModalOpen, toast]);
 
   const handleCardPayment: SubmitHandler<CardPaymentFormValues> = async (data) => {
     if (!user) return;
@@ -75,19 +138,34 @@ export default function MakePurchasePage() {
     }
   };
 
-  const handleBarcodePayment: SubmitHandler<BarcodePaymentFormValues> = async (data) => {
-    if (!user) return;
+  const handlePurchaseDetailsSubmit: SubmitHandler<PurchaseDetailsFormValues> = (data) => {
+    setPaymentResult(null); // Clear previous results
+    setCurrentPurchaseDetails(data);
+    setIsScanModalOpen(true);
+    scanConfirmForm.reset(); // Reset barcode/cvv form
+  };
+
+  const handleBarcodePayment: SubmitHandler<ScanConfirmFormValues> = async (scanData) => {
+    if (!user || !currentPurchaseDetails) return;
     setIsLoading(true);
     setPaymentResult(null);
-    const result = await makeBarcodePaymentAction({ ...data, businessAccountId: user.id });
+    const result = await makeBarcodePaymentAction({
+      ...scanData,
+      purchaseName: currentPurchaseDetails.purchaseName,
+      amount: currentPurchaseDetails.amount,
+      businessAccountId: user.id
+    });
     setIsLoading(false);
     setPaymentResult(result);
     if (result.success) {
       toast({ title: "Success!", description: result.message });
-      barcodeForm.reset();
-      setIsBarcodeModalOpen(false);
+      scanConfirmForm.reset();
+      purchaseDetailsForm.reset();
+      setIsScanModalOpen(false);
+      setCurrentPurchaseDetails(null);
     } else {
       toast({ title: "Payment Failed", description: result.message, variant: "destructive" });
+      // Keep modal open on failure for correction
     }
   };
 
@@ -110,7 +188,7 @@ export default function MakePurchasePage() {
               <AlertDescription>{paymentResult.message}</AlertDescription>
             </Alert>
           )}
-          <Tabs defaultValue="card" className="w-full">
+          <Tabs defaultValue="card" className="w-full" onValueChange={() => setPaymentResult(null)}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="card"><CreditCard className="mr-2 h-4 w-4" />Card Payment</TabsTrigger>
               <TabsTrigger value="barcode"><QrCode className="mr-2 h-4 w-4" />Barcode Payment</TabsTrigger>
@@ -139,45 +217,79 @@ export default function MakePurchasePage() {
               </Form>
             </TabsContent>
             <TabsContent value="barcode" className="pt-4">
-              <div className="text-center space-y-4">
-                <p className="text-muted-foreground">Click the button below to open the barcode scanner input.</p>
-                <Dialog open={isBarcodeModalOpen} onOpenChange={setIsBarcodeModalOpen}>
-                  <DialogTrigger asChild>
-                    <Button variant="outline" size="lg" className="w-full">
-                      <ScanLine className="mr-2 h-5 w-5" /> Scan/Enter Barcode
-                    </Button>
-                  </DialogTrigger>
-                  <DialogContent>
-                    <DialogHeader>
-                      <DialogTitle>Barcode Payment</DialogTitle>
-                      <DialogDescription>Enter the 8-digit barcode, CVV, and amount for the purchase.</DialogDescription>
-                    </DialogHeader>
-                    <Form {...barcodeForm}>
-                      <form onSubmit={barcodeForm.handleSubmit(handleBarcodePayment)} className="space-y-4 py-4">
-                        <FormField control={barcodeForm.control} name="barcode" render={({ field }) => (
-                          <FormItem><FormLabel>8-Digit Barcode</FormLabel><FormControl><Input placeholder="Enter barcode" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={barcodeForm.control} name="cvv" render={({ field }) => (
-                          <FormItem><FormLabel>Account CVV</FormLabel><FormControl><Input type="password" placeholder="CVV" {...field} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={barcodeForm.control} name="amount" render={({ field }) => (
-                          <FormItem><FormLabel>Amount ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Enter amount" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <DialogFooter>
-                          <Button type="button" variant="ghost" onClick={() => setIsBarcodeModalOpen(false)}>Cancel</Button>
-                          <Button type="submit" disabled={isLoading}>
-                            {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : "Process Barcode Payment"}
-                          </Button>
-                        </DialogFooter>
-                      </form>
-                    </Form>
-                  </DialogContent>
-                </Dialog>
-              </div>
+              <Form {...purchaseDetailsForm}>
+                <form onSubmit={purchaseDetailsForm.handleSubmit(handlePurchaseDetailsSubmit)} className="space-y-4">
+                  <FormField control={purchaseDetailsForm.control} name="purchaseName" render={({ field }) => (
+                    <FormItem><FormLabel>Purchase Name</FormLabel><FormControl><Input placeholder="e.g., Lunch, Books" {...field} /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={purchaseDetailsForm.control} name="amount" render={({ field }) => (
+                    <FormItem><FormLabel>Amount ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Enter total amount" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)}/></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <Button type="submit" className="w-full">
+                    <ScanLine className="mr-2 h-5 w-5" /> Proceed to Scan/Enter Barcode
+                  </Button>
+                </form>
+              </Form>
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
+
+      <Dialog open={isScanModalOpen} onOpenChange={setIsScanModalOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5 text-primary"/> Scan Barcode & Confirm</DialogTitle>
+            {currentPurchaseDetails && (
+              <DialogDescription>
+                Confirming purchase for: <strong>{currentPurchaseDetails.purchaseName}</strong> - Total: <strong>${currentPurchaseDetails.amount.toFixed(2)}</strong>.
+                Scan the barcode or enter it manually along with the CVV.
+              </DialogDescription>
+            )}
+          </DialogHeader>
+          
+          <div className="my-4 space-y-2">
+            <label className="text-sm font-medium">Camera Preview</label>
+            <div className="w-full aspect-video bg-muted rounded-md overflow-hidden flex items-center justify-center">
+              {hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
+              <video ref={videoRef} className={`w-full h-full object-cover ${hasCameraPermission ? 'block' : 'hidden'}`} autoPlay muted playsInline />
+              {hasCameraPermission === false && (
+                <div className="text-center p-4">
+                  <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-2"/>
+                  <p className="text-sm text-muted-foreground">Camera not available or permission denied.</p>
+                  <p className="text-xs text-muted-foreground">Enter barcode manually below.</p>
+                </div>
+              )}
+            </div>
+            {hasCameraPermission === false && (
+               <Alert variant="destructive" className="mt-2">
+                  <XCircle className="h-4 w-4" />
+                  <AlertTitle>Camera Access Issue</AlertTitle>
+                  <AlertDescription>
+                    Could not access camera. Please ensure permissions are granted in your browser settings, or enter the barcode manually.
+                  </AlertDescription>
+              </Alert>
+            )}
+          </div>
+
+          <Form {...scanConfirmForm}>
+            <form onSubmit={scanConfirmForm.handleSubmit(handleBarcodePayment)} className="space-y-4">
+              <FormField control={scanConfirmForm.control} name="barcode" render={({ field }) => (
+                <FormItem><FormLabel>8-Digit Barcode</FormLabel><FormControl><Input placeholder="Enter barcode manually" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <FormField control={scanConfirmForm.control} name="cvv" render={({ field }) => (
+                <FormItem><FormLabel>Account CVV</FormLabel><FormControl><Input type="password" placeholder="CVV" {...field} /></FormControl><FormMessage /></FormItem>
+              )} />
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button type="button" variant="outline" onClick={() => setIsScanModalOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isLoading || hasCameraPermission === null && isScanModalOpen}>
+                  {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : "Process Barcode Payment"}
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
+
