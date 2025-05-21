@@ -42,9 +42,10 @@ export default function ViewAllTransactionsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <TransactionTable transactions={transactionsWithNames} caption="All transactions recorded in the system." maxHeight="600px" />
+          <TransactionTable transactions={transactionsWithNames} caption="All transactions recorded in the system." maxHeight="75vh" />
         </CardContent>
       </Card>
     </div>
   );
 }
+
