@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, CreditCard, QrCode, Loader2, XCircle, CheckCircle, ScanLine, Camera } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { BrowserMultiFormatReader, NotFoundException, ChecksumException, FormatException } from '@zxing/browser';
 
 const cardPaymentSchema = z.object({
   cardNumber: z.string().min(12, "Card number min 12 chars").max(19, "Card number max 19 chars").regex(/^\d+$/, "Card number must be digits"),
@@ -30,7 +31,6 @@ const cardPaymentSchema = z.object({
 });
 type CardPaymentFormValues = z.infer<typeof cardPaymentSchema>;
 
-// Schema for initial purchase details (barcode flow)
 const purchaseDetailsSchema = z.object({
   purchaseName: z.string().min(1, "Purchase name is required (e.g., Coffee, Books)."),
   amount: z.preprocess(
@@ -41,7 +41,6 @@ const purchaseDetailsSchema = z.object({
 });
 type PurchaseDetailsFormValues = z.infer<typeof purchaseDetailsSchema>;
 
-// Schema for barcode and CVV (barcode flow - in dialog)
 const scanConfirmSchema = z.object({
   barcode: z.string().length(8, "Barcode must be 8 digits.").regex(/^\d+$/, "Barcode must be digits"),
   cvv: z.string().min(3, "CVV must be 3-4 digits").max(4, "CVV must be 3-4 digits").regex(/^\d+$/, "CVV must be digits"),
@@ -56,8 +55,9 @@ export default function MakePurchasePage() {
   
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [currentPurchaseDetails, setCurrentPurchaseDetails] = useState<{ purchaseName: string; amount: number } | null>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null); // null: checking, true: granted, false: denied/unavailable
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const codeReaderRef = useRef<BrowserMultiFormatReader | null>(null);
 
   const cardForm = useForm<CardPaymentFormValues>({
     resolver: zodResolver(cardPaymentSchema),
@@ -81,12 +81,15 @@ export default function MakePurchasePage() {
         stream.getTracks().forEach(track => track.stop());
         videoRef.current.srcObject = null;
       }
-      setHasCameraPermission(null); // Reset permission status when modal is closed
+      if (codeReaderRef.current) {
+        codeReaderRef.current.reset(); // Ensure scanner is reset
+      }
+      setHasCameraPermission(null);
       return;
     }
 
     const getCameraPermission = async () => {
-      setHasCameraPermission(null); // Set to checking state
+      setHasCameraPermission(null);
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         toast({
           variant: 'destructive',
@@ -105,20 +108,62 @@ export default function MakePurchasePage() {
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-        // Toast is shown by the Alert component conditionally rendered based on hasCameraPermission
       }
     };
 
     getCameraPermission();
 
-    return () => { // Cleanup function
+    return () => {
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
         videoRef.current.srcObject = null;
       }
+      if (codeReaderRef.current) {
+        codeReaderRef.current.reset();
+      }
     };
-  }, [isScanModalOpen]); // Removed toast from dependencies as it's stable
+  }, [isScanModalOpen]);
+
+  useEffect(() => {
+    if (isScanModalOpen && hasCameraPermission === true && videoRef.current) {
+      if (!codeReaderRef.current) {
+        codeReaderRef.current = new BrowserMultiFormatReader();
+      }
+      const reader = codeReaderRef.current;
+      const videoElement = videoRef.current;
+
+      const startScan = () => {
+        reader.decodeContinuously(videoElement, (result, error) => {
+          if (result) {
+            scanConfirmForm.setValue('barcode', result.getText(), { shouldValidate: true });
+            toast({ title: "Barcode Scanned!", description: `Code: ${result.getText()}` });
+            // To stop after first scan, you could call reader.reset() here or close the modal.
+            // For now, it will continuously scan.
+          }
+          if (error) {
+            if (!(error instanceof NotFoundException) &&
+                !(error instanceof ChecksumException) &&
+                !(error instanceof FormatException)) {
+              // Log other errors, but NotFoundException is common and expected during scanning
+              console.warn('Barcode scanning error:', error);
+            }
+          }
+        }).catch(err => console.error("Error starting decodeContinuously:", err));
+      };
+
+      if (videoElement.readyState >= videoElement.HAVE_ENOUGH_DATA) {
+        startScan();
+      } else {
+        videoElement.onloadeddata = () => {
+          startScan();
+        };
+      }
+    }
+    // Cleanup for this effect (stopping continuous scan) is handled by the main useEffect's cleanup
+    // or when hasCameraPermission changes, via codeReaderRef.current.reset().
+  }, [isScanModalOpen, hasCameraPermission, scanConfirmForm, toast]);
+
 
   const handleCardPayment: SubmitHandler<CardPaymentFormValues> = async (data) => {
     if (!user) return;
@@ -139,7 +184,7 @@ export default function MakePurchasePage() {
     setPaymentResult(null); 
     setCurrentPurchaseDetails(data);
     scanConfirmForm.reset(); 
-    setIsScanModalOpen(true); // This will trigger the useEffect for camera
+    setIsScanModalOpen(true);
   };
 
   const handleBarcodePayment: SubmitHandler<ScanConfirmFormValues> = async (scanData) => {
@@ -238,40 +283,38 @@ export default function MakePurchasePage() {
             {currentPurchaseDetails && (
               <DialogDescription>
                 Confirming purchase for: <strong>{currentPurchaseDetails.purchaseName}</strong> - Total: <strong>${currentPurchaseDetails.amount.toFixed(2)}</strong>.
-                Scan the barcode or enter it manually along with the CVV.
+                The camera will attempt to scan the barcode. You can also enter it manually along with the CVV.
               </DialogDescription>
             )}
           </DialogHeader>
           
           <div className="my-4 space-y-2">
             <label className="text-sm font-medium">Camera Preview</label>
-            {/* Video element container */}
             <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-              {/* Overlay for loading state */}
               {hasCameraPermission === null && (
                 <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <p className="ml-2 text-sm text-muted-foreground">Accessing camera...</p>
                 </div>
               )}
             </div>
 
-            {/* Alert for camera permission status */}
             {hasCameraPermission === false && (
               <Alert variant="destructive" className="mt-2">
                 <XCircle className="h-4 w-4" />
                 <AlertTitle>Camera Access Denied/Unavailable</AlertTitle>
                 <AlertDescription>
-                  Could not access the camera. Please ensure permissions are granted in your browser settings and try again, or enter the barcode manually.
+                  Could not access the camera. Please ensure permissions are granted or enter the barcode manually.
                 </AlertDescription>
               </Alert>
             )}
-             {hasCameraPermission === null && isScanModalOpen && (
+             {hasCameraPermission === true && (
                  <Alert variant="default" className="mt-2 border-primary/20 text-primary bg-primary/10">
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                    <AlertTitle>Accessing Camera</AlertTitle>
+                    <ScanLine className="h-4 w-4" />
+                    <AlertTitle>Scanning Active</AlertTitle>
                     <AlertDescription>
-                      Attempting to access your camera. Please grant permission if prompted.
+                      Point the barcode at the camera. Manual entry is also available below.
                     </AlertDescription>
                 </Alert>
             )}
@@ -280,7 +323,7 @@ export default function MakePurchasePage() {
           <Form {...scanConfirmForm}>
             <form onSubmit={scanConfirmForm.handleSubmit(handleBarcodePayment)} className="space-y-4">
               <FormField control={scanConfirmForm.control} name="barcode" render={({ field }) => (
-                <FormItem><FormLabel>8-Digit Barcode</FormLabel><FormControl><Input placeholder="Enter barcode manually" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>8-Digit Barcode</FormLabel><FormControl><Input placeholder="Scanned or enter manually" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={scanConfirmForm.control} name="cvv" render={({ field }) => (
                 <FormItem><FormLabel>Account CVV</FormLabel><FormControl><Input type="password" placeholder="CVV" {...field} /></FormControl><FormMessage /></FormItem>
@@ -298,5 +341,3 @@ export default function MakePurchasePage() {
     </div>
   );
 }
-
-
