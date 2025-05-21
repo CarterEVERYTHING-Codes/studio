@@ -134,22 +134,40 @@ export default function MakePurchasePage() {
       const videoElement = videoRef.current;
 
       const startScan = () => {
-        reader.decodeContinuously(videoElement, (result, error) => {
-          if (result) {
-            scanConfirmForm.setValue('barcode', result.getText(), { shouldValidate: true });
-            toast({ title: "Barcode Scanned!", description: `Code: ${result.getText()}` });
-          }
-          if (error) {
-            // NotFoundException is common and expected during scanning when no barcode is in view.
-            // Other errors (like ChecksumException, FormatException) might indicate an issue with the barcode itself.
-            if (!(error && error.name === 'NotFoundException')) {
-              console.warn('Barcode scanning error:', error);
+        if (!reader || !videoElement) {
+          console.error("Barcode reader or video element not initialized.");
+          toast({
+            variant: 'destructive',
+            title: 'Scanner Error',
+            description: 'Scanner components not ready. Please try again.',
+          });
+          return;
+        }
+        try {
+          reader.decodeFromVideoElement(videoElement, (result, error, controls) => {
+            if (result) {
+              scanConfirmForm.setValue('barcode', result.getText(), { shouldValidate: true });
+              toast({ title: "Barcode Scanned!", description: `Code: ${result.getText()}` });
+              // Optionally stop scanning after first successful scan:
+              // controls.stop(); 
+              // setIsScanModalOpen(false); // or close modal
             }
-          }
-        }).catch(err => console.error("Error starting decodeContinuously:", err));
+            if (error) {
+              if (!(error && error.name === 'NotFoundException')) {
+                console.warn('Barcode scanning error:', error);
+              }
+            }
+          });
+        } catch (scanError) {
+          console.error("Error starting barcode scanning process:", scanError);
+          toast({
+            variant: 'destructive',
+            title: 'Scanner Start Error',
+            description: 'Could not initiate scanner. Please try manual entry.',
+          });
+        }
       };
 
-      // Ensure video is ready before starting scan
       if (videoElement.readyState >= videoElement.HAVE_ENOUGH_DATA) {
         startScan();
       } else {
@@ -286,7 +304,6 @@ export default function MakePurchasePage() {
           
           <div className="my-4 space-y-2">
             <label className="text-sm font-medium">Camera Preview</label>
-            {/* Video element always rendered when modal is open to simplify state */}
             <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
               {hasCameraPermission === null && !videoRef.current?.srcObject && (
@@ -297,7 +314,6 @@ export default function MakePurchasePage() {
               )}
             </div>
             
-            {/* Conditional alerts based on camera permission status */}
             {hasCameraPermission === false && (
               <Alert variant="destructive" className="mt-2">
                 <XCircle className="h-4 w-4" />
