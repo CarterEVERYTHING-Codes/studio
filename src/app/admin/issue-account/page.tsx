@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { issueNewAccountAction, type IssueAccountFormValues } from "@/actions/adminActions";
 import { useState } from "react";
 import type { Account } from "@/lib/types";
-import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -187,3 +187,4 @@ export default function IssueAccountPage() {
     </div>
   );
 }
+
