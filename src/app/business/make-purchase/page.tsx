@@ -56,7 +56,7 @@ export default function MakePurchasePage() {
   
   const [isScanModalOpen, setIsScanModalOpen] = useState(false);
   const [currentPurchaseDetails, setCurrentPurchaseDetails] = useState<{ purchaseName: string; amount: number } | null>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null); // null: checking, true: granted, false: denied/unavailable
   const videoRef = useRef<HTMLVideoElement>(null);
 
   const cardForm = useForm<CardPaymentFormValues>({
@@ -81,12 +81,12 @@ export default function MakePurchasePage() {
         stream.getTracks().forEach(track => track.stop());
         videoRef.current.srcObject = null;
       }
-      setHasCameraPermission(null);
+      setHasCameraPermission(null); // Reset permission status when modal is closed
       return;
     }
 
     const getCameraPermission = async () => {
-      setHasCameraPermission(null); // Reset while checking
+      setHasCameraPermission(null); // Set to checking state
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         toast({
           variant: 'destructive',
@@ -98,30 +98,27 @@ export default function MakePurchasePage() {
       }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setHasCameraPermission(true);
         if (videoRef.current) {
           videoRef.current.srcObject = stream;
         }
+        setHasCameraPermission(true);
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Denied',
-          description: 'Please enable camera permissions. You can still enter the barcode manually.',
-        });
+        // Toast is shown by the Alert component conditionally rendered based on hasCameraPermission
       }
     };
 
     getCameraPermission();
 
-    return () => {
+    return () => { // Cleanup function
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
       }
     };
-  }, [isScanModalOpen, toast]);
+  }, [isScanModalOpen]); // Removed toast from dependencies as it's stable
 
   const handleCardPayment: SubmitHandler<CardPaymentFormValues> = async (data) => {
     if (!user) return;
@@ -139,10 +136,10 @@ export default function MakePurchasePage() {
   };
 
   const handlePurchaseDetailsSubmit: SubmitHandler<PurchaseDetailsFormValues> = (data) => {
-    setPaymentResult(null); // Clear previous results
+    setPaymentResult(null); 
     setCurrentPurchaseDetails(data);
-    setIsScanModalOpen(true);
-    scanConfirmForm.reset(); // Reset barcode/cvv form
+    scanConfirmForm.reset(); 
+    setIsScanModalOpen(true); // This will trigger the useEffect for camera
   };
 
   const handleBarcodePayment: SubmitHandler<ScanConfirmFormValues> = async (scanData) => {
@@ -165,7 +162,6 @@ export default function MakePurchasePage() {
       setCurrentPurchaseDetails(null);
     } else {
       toast({ title: "Payment Failed", description: result.message, variant: "destructive" });
-      // Keep modal open on failure for correction
     }
   };
 
@@ -249,25 +245,35 @@ export default function MakePurchasePage() {
           
           <div className="my-4 space-y-2">
             <label className="text-sm font-medium">Camera Preview</label>
-            <div className="w-full aspect-video bg-muted rounded-md overflow-hidden flex items-center justify-center">
-              {hasCameraPermission === null && <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />}
-              <video ref={videoRef} className={`w-full h-full object-cover ${hasCameraPermission ? 'block' : 'hidden'}`} autoPlay muted playsInline />
-              {hasCameraPermission === false && (
-                <div className="text-center p-4">
-                  <Camera className="h-12 w-12 text-muted-foreground mx-auto mb-2"/>
-                  <p className="text-sm text-muted-foreground">Camera not available or permission denied.</p>
-                  <p className="text-xs text-muted-foreground">Enter barcode manually below.</p>
+            {/* Video element container */}
+            <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
+              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+              {/* Overlay for loading state */}
+              {hasCameraPermission === null && (
+                <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
               )}
             </div>
+
+            {/* Alert for camera permission status */}
             {hasCameraPermission === false && (
-               <Alert variant="destructive" className="mt-2">
-                  <XCircle className="h-4 w-4" />
-                  <AlertTitle>Camera Access Issue</AlertTitle>
-                  <AlertDescription>
-                    Could not access camera. Please ensure permissions are granted in your browser settings, or enter the barcode manually.
-                  </AlertDescription>
+              <Alert variant="destructive" className="mt-2">
+                <XCircle className="h-4 w-4" />
+                <AlertTitle>Camera Access Denied/Unavailable</AlertTitle>
+                <AlertDescription>
+                  Could not access the camera. Please ensure permissions are granted in your browser settings and try again, or enter the barcode manually.
+                </AlertDescription>
               </Alert>
+            )}
+             {hasCameraPermission === null && isScanModalOpen && (
+                 <Alert variant="default" className="mt-2 border-primary/20 text-primary bg-primary/10">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <AlertTitle>Accessing Camera</AlertTitle>
+                    <AlertDescription>
+                      Attempting to access your camera. Please grant permission if prompted.
+                    </AlertDescription>
+                </Alert>
             )}
           </div>
 
@@ -281,7 +287,7 @@ export default function MakePurchasePage() {
               )} />
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button type="button" variant="outline" onClick={() => setIsScanModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isLoading || hasCameraPermission === null && isScanModalOpen}>
+                <Button type="submit" disabled={isLoading || (isScanModalOpen && hasCameraPermission === null) }>
                   {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : "Process Barcode Payment"}
                 </Button>
               </DialogFooter>
@@ -292,4 +298,5 @@ export default function MakePurchasePage() {
     </div>
   );
 }
+
 
