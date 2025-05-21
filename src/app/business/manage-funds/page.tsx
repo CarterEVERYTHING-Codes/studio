@@ -14,7 +14,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { manageFundsAction } from "@/actions/businessActions";
 import { useAuth } from "@/hooks/useAuth";
-import { mockAccounts } from "@/lib/mock-data";
+import { mockAccounts, mockUsers } from "@/lib/mock-data"; // Added mockUsers here
 import { ArrowLeft, Landmark, Loader2, AlertCircle, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
@@ -150,3 +150,4 @@ export default function ManageFundsPage() {
     </div>
   );
 }
+
