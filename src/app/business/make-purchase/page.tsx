@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useRef } from "react";
@@ -75,21 +74,25 @@ export default function MakePurchasePage() {
   });
 
   useEffect(() => {
+    const videoElementForCleanup = videoRef.current; // Capture for cleanup
+
     if (!isScanModalOpen) {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
+      // Modal is closing or closed. Stop the video stream on videoRef if it's still active.
+      // This is a fallback if the scanner didn't manage it.
+      if (videoElementForCleanup && videoElementForCleanup.srcObject) {
+        const stream = videoElementForCleanup.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
+        videoElementForCleanup.srcObject = null;
       }
-      if (codeReaderRef.current) {
-        codeReaderRef.current.reset(); 
-      }
+      // The call to codeReaderRef.current.reset() was here and caused the error.
+      // It's removed because the second useEffect's cleanup is responsible for the reader.
       setHasCameraPermission(null);
-      return;
+      return; // Exit early if modal is not open for camera permission logic.
     }
 
+    // Modal is opening: request camera permission
     const getCameraPermission = async () => {
-      setHasCameraPermission(null);
+      setHasCameraPermission(null); // Reset before attempting
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         toast({
           variant: 'destructive',
@@ -100,59 +103,67 @@ export default function MakePurchasePage() {
         return;
       }
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        if (videoRef.current) {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+        if (videoRef.current) { // Check if component is still mounted
           videoRef.current.srcObject = stream;
+        } else { // If component unmounted before stream was set, stop the stream
+          stream.getTracks().forEach(track => track.stop());
         }
         setHasCameraPermission(true);
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings to use the scanner, or enter manually.',
+        });
       }
     };
 
     getCameraPermission();
 
+    // Cleanup for this effect (when isScanModalOpen becomes false, or component unmounts)
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-      }
-      if (codeReaderRef.current) {
-        codeReaderRef.current.reset();
+      // This cleanup ensures the stream on videoRef is stopped if this effect initiated it
+      // and the modal closes before the scanner could manage it, or if scanner fails.
+      // The scanner's reset() method (in the other useEffect's cleanup) should primarily handle this.
+      if (videoElementForCleanup && videoElementForCleanup.srcObject) {
+        const stream = videoElementForCleanup.srcObject as MediaStream;
+        if (stream.getTracks().some(track => track.readyState === 'live')) {
+             stream.getTracks().forEach(track => track.stop());
+        }
+        // videoElementForCleanup.srcObject = null; // Avoid if scanner cleanup also does this.
       }
     };
   }, [isScanModalOpen, toast]);
 
+
   useEffect(() => {
-    if (isScanModalOpen && hasCameraPermission === true && videoRef.current) {
+    // This effect handles the actual scanning process.
+    const videoElement = videoRef.current; // Capture for use in this effect cycle
+
+    if (isScanModalOpen && hasCameraPermission === true && videoElement && videoElement.srcObject) {
       if (!codeReaderRef.current) {
         codeReaderRef.current = new BrowserMultiFormatReader();
       }
-      const reader = codeReaderRef.current;
-      const videoElement = videoRef.current;
+      const readerInstance = codeReaderRef.current; // Use this instance for the current effect run
 
       const startScan = () => {
-        if (!reader || !videoElement) {
-          console.error("Barcode reader or video element not initialized.");
-          toast({
-            variant: 'destructive',
-            title: 'Scanner Error',
-            description: 'Scanner components not ready. Please try again.',
-          });
+        if (!readerInstance || !videoElement || !videoElement.srcObject) {
+          // console.warn("Scanner prerequisites not met for starting scan.");
           return;
         }
         try {
-          reader.decodeFromVideoElement(videoElement, (result, error, controls) => {
+          readerInstance.decodeFromVideoElement(videoElement, (result, error, controls) => {
             if (result) {
               scanConfirmForm.setValue('barcode', result.getText(), { shouldValidate: true });
               toast({ title: "Barcode Scanned!", description: `Code: ${result.getText()}` });
-              // Optionally stop scanning after first successful scan:
-              // controls.stop(); 
-              // setIsScanModalOpen(false); // or close modal
+              // Optionally stop scanning after first successful scan: controls.stop();
             }
             if (error) {
+              // NotFoundException is common and means no barcode was found in the frame.
+              // Other errors might be more significant.
               if (!(error && error.name === 'NotFoundException')) {
                 console.warn('Barcode scanning error:', error);
               }
@@ -167,15 +178,39 @@ export default function MakePurchasePage() {
           });
         }
       };
+      
+      // Ensure video is ready and playing
+      const playAndScan = async () => {
+        try {
+            if (videoElement.paused) {
+                await videoElement.play();
+            }
+            startScan();
+        } catch (e) {
+            console.error("Error playing video for scan:", e);
+            toast({ variant: 'destructive', title: 'Video Playback Error', description: 'Could not play video for scanning.' });
+        }
+      };
 
       if (videoElement.readyState >= videoElement.HAVE_ENOUGH_DATA) {
-        startScan();
+        playAndScan();
       } else {
-        videoElement.onloadeddata = () => {
-          startScan();
+        const canPlayListener = () => {
+            playAndScan();
+            videoElement.removeEventListener('canplay', canPlayListener); // Clean up listener
         };
+        videoElement.addEventListener('canplay', canPlayListener);
       }
     }
+
+    // Cleanup for THIS effect (when dependencies change, e.g., isScanModalOpen -> false)
+    return () => {
+      if (codeReaderRef.current) { // If a reader instance exists on the ref
+        codeReaderRef.current.reset(); // This should stop scanning and release camera
+        // codeReaderRef.current = null; // Optional: nullify if this effect "owns" the instance exclusively
+      }
+      // The video stream attached to videoRef.current.srcObject is managed by readerInstance.reset()
+    };
   }, [isScanModalOpen, hasCameraPermission, scanConfirmForm, toast]);
 
 
@@ -243,7 +278,7 @@ export default function MakePurchasePage() {
               <AlertDescription>{paymentResult.message}</AlertDescription>
             </Alert>
           )}
-          <Tabs defaultValue="card" className="w-full" onValueChange={() => setPaymentResult(null)}>
+          <Tabs defaultValue="card" className="w-full" onValueChange={() => { setPaymentResult(null); cardForm.reset(); purchaseDetailsForm.reset(); }}>
             <TabsList className="grid w-full grid-cols-2">
               <TabsTrigger value="card"><CreditCard className="mr-2 h-4 w-4" />Card Payment</TabsTrigger>
               <TabsTrigger value="barcode"><QrCode className="mr-2 h-4 w-4" />Barcode Payment</TabsTrigger>
@@ -290,7 +325,13 @@ export default function MakePurchasePage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isScanModalOpen} onOpenChange={setIsScanModalOpen}>
+      <Dialog open={isScanModalOpen} onOpenChange={(open) => {
+          setIsScanModalOpen(open);
+          if (!open) { // Reset forms when dialog is closed
+            scanConfirmForm.reset();
+            // purchaseDetailsForm.reset(); // Keep purchase details for quick retry? or reset. Let's reset.
+          }
+      }}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5 text-primary"/> Scan Barcode & Confirm</DialogTitle>
@@ -305,8 +346,11 @@ export default function MakePurchasePage() {
           <div className="my-4 space-y-2">
             <label className="text-sm font-medium">Camera Preview</label>
             <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
+              {/* Video element always rendered to avoid race conditions with ref and stream */}
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-              {hasCameraPermission === null && !videoRef.current?.srcObject && (
+              
+              {/* Overlays based on camera permission state */}
+              {hasCameraPermission === null && ( // Loading state
                 <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   <p className="ml-2 text-sm text-muted-foreground">Accessing camera...</p>
@@ -314,7 +358,7 @@ export default function MakePurchasePage() {
               )}
             </div>
             
-            {hasCameraPermission === false && (
+            {hasCameraPermission === false && ( // Permission denied or error
               <Alert variant="destructive" className="mt-2">
                 <XCircle className="h-4 w-4" />
                 <AlertTitle>Camera Access Denied/Unavailable</AlertTitle>
@@ -323,7 +367,7 @@ export default function MakePurchasePage() {
                 </AlertDescription>
               </Alert>
             )}
-            {hasCameraPermission === true && (
+            {hasCameraPermission === true && ( // Permission granted, scanning active
                  <Alert variant="default" className="mt-2 border-primary/20 text-primary bg-primary/10">
                     <ScanLine className="h-4 w-4" />
                     <AlertTitle>Scanning Active</AlertTitle>
@@ -344,7 +388,7 @@ export default function MakePurchasePage() {
               )} />
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button type="button" variant="outline" onClick={() => setIsScanModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isLoading || (isScanModalOpen && hasCameraPermission === null && !videoRef.current?.srcObject) }>
+                <Button type="submit" disabled={isLoading || (isScanModalOpen && hasCameraPermission === null) }>
                   {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : "Process Barcode Payment"}
                 </Button>
               </DialogFooter>
@@ -355,4 +399,3 @@ export default function MakePurchasePage() {
     </div>
   );
 }
-
