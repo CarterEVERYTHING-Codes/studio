@@ -8,7 +8,7 @@ import {
     getAccountByBarcode, 
     mockAccounts, 
     MAIN_ADMIN_ACCOUNT_ID,
-    CAMPUS_STORE_BUSINESS_ACCOUNT_ID, // Assuming business making sale is Campus Store
+    allTransactions, // Added import
     mockUsers
 } from "@/lib/mock-data";
 import type { Transaction, Account } from "@/lib/types";
@@ -66,24 +66,6 @@ export async function makeCardPaymentAction(values: z.infer<typeof cardPaymentSc
   const businessName = businessUser?.name || "Campus Business";
   const customerName = customerAccount.accountHolderName;
 
-  // 1. Transaction: Customer pays for item + fee (debited from customer, conceptually to business)
-  const customerDebitTx: Transaction = {
-    id: `txn-cust-${Date.now()}`,
-    date: new Date().toISOString(),
-    description: `Purchase at ${businessName} ($${purchaseAmount.toFixed(2)}) & Service Fee ($${serviceFee.toFixed(2)})`,
-    amount: -totalChargeToCustomer, // Negative for customer
-    type: "purchase",
-    fromAccountId: customerAccount.id,
-    toAccountId: businessAccount.id, // Main recipient of purchase amount
-  };
-  addMockTransaction(customerDebitTx); // This will debit customer, credit business by totalChargeToCustomer initially.
-
-  // 2. Correction: Transfer purchaseAmount from totalCharge received by business to business's actual earning.
-  //    The addMockTransaction credits businessAccount.id with totalChargeToCustomer.
-  //    We need to ensure business only gets purchaseAmount. Fee goes to Admin.
-  //    This is tricky with current addMockTransaction.
-  //    Let's adjust balances manually then add transactions just for record keeping to specific accounts.
-
   // Explicit balance updates
   customerAccount.balance -= totalChargeToCustomer;
   businessAccount.balance += purchaseAmount;
@@ -137,7 +119,7 @@ export async function makeCardPaymentAction(values: z.infer<typeof cardPaymentSc
   mainAdminAccount.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
 
-  return { success: true, message: `Card purchase of $${purchaseAmount.toFixed(2)} successful! Fee: $${serviceFee.toFixed(2)}. Total: $${totalChargeToCustomer.toFixed(2)}`, transactionId: customerDebitTx.id };
+  return { success: true, message: `Card purchase of $${purchaseAmount.toFixed(2)} successful! Fee: $${serviceFee.toFixed(2)}. Total: $${totalChargeToCustomer.toFixed(2)}`, transactionId: customerLedgerTx.id };
 }
 
 export async function makeBarcodePaymentAction(values: z.infer<typeof barcodePaymentSchema>): Promise<{ success: boolean; message: string; transactionId?: string }>{
