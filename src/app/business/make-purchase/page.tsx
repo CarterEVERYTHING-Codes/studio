@@ -17,7 +17,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, CreditCard, QrCode, Loader2, XCircle, CheckCircle, ScanLine, Camera } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { BrowserMultiFormatReader, NotFoundException, ChecksumException, FormatException } from '@zxing/browser';
+import { BrowserMultiFormatReader } from '@zxing/browser';
 
 const cardPaymentSchema = z.object({
   cardNumber: z.string().min(12, "Card number min 12 chars").max(19, "Card number max 19 chars").regex(/^\d+$/, "Card number must be digits"),
@@ -82,7 +82,7 @@ export default function MakePurchasePage() {
         videoRef.current.srcObject = null;
       }
       if (codeReaderRef.current) {
-        codeReaderRef.current.reset(); // Ensure scanner is reset
+        codeReaderRef.current.reset(); 
       }
       setHasCameraPermission(null);
       return;
@@ -123,7 +123,7 @@ export default function MakePurchasePage() {
         codeReaderRef.current.reset();
       }
     };
-  }, [isScanModalOpen]);
+  }, [isScanModalOpen, toast]);
 
   useEffect(() => {
     if (isScanModalOpen && hasCameraPermission === true && videoRef.current) {
@@ -138,20 +138,18 @@ export default function MakePurchasePage() {
           if (result) {
             scanConfirmForm.setValue('barcode', result.getText(), { shouldValidate: true });
             toast({ title: "Barcode Scanned!", description: `Code: ${result.getText()}` });
-            // To stop after first scan, you could call reader.reset() here or close the modal.
-            // For now, it will continuously scan.
           }
           if (error) {
-            if (!(error instanceof NotFoundException) &&
-                !(error instanceof ChecksumException) &&
-                !(error instanceof FormatException)) {
-              // Log other errors, but NotFoundException is common and expected during scanning
+            // NotFoundException is common and expected during scanning when no barcode is in view.
+            // Other errors (like ChecksumException, FormatException) might indicate an issue with the barcode itself.
+            if (!(error && error.name === 'NotFoundException')) {
               console.warn('Barcode scanning error:', error);
             }
           }
         }).catch(err => console.error("Error starting decodeContinuously:", err));
       };
 
+      // Ensure video is ready before starting scan
       if (videoElement.readyState >= videoElement.HAVE_ENOUGH_DATA) {
         startScan();
       } else {
@@ -160,8 +158,6 @@ export default function MakePurchasePage() {
         };
       }
     }
-    // Cleanup for this effect (stopping continuous scan) is handled by the main useEffect's cleanup
-    // or when hasCameraPermission changes, via codeReaderRef.current.reset().
   }, [isScanModalOpen, hasCameraPermission, scanConfirmForm, toast]);
 
 
@@ -290,16 +286,18 @@ export default function MakePurchasePage() {
           
           <div className="my-4 space-y-2">
             <label className="text-sm font-medium">Camera Preview</label>
+            {/* Video element always rendered when modal is open to simplify state */}
             <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-              {hasCameraPermission === null && (
+              {hasCameraPermission === null && !videoRef.current?.srcObject && (
                 <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   <p className="ml-2 text-sm text-muted-foreground">Accessing camera...</p>
                 </div>
               )}
             </div>
-
+            
+            {/* Conditional alerts based on camera permission status */}
             {hasCameraPermission === false && (
               <Alert variant="destructive" className="mt-2">
                 <XCircle className="h-4 w-4" />
@@ -309,7 +307,7 @@ export default function MakePurchasePage() {
                 </AlertDescription>
               </Alert>
             )}
-             {hasCameraPermission === true && (
+            {hasCameraPermission === true && (
                  <Alert variant="default" className="mt-2 border-primary/20 text-primary bg-primary/10">
                     <ScanLine className="h-4 w-4" />
                     <AlertTitle>Scanning Active</AlertTitle>
@@ -330,7 +328,7 @@ export default function MakePurchasePage() {
               )} />
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button type="button" variant="outline" onClick={() => setIsScanModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isLoading || (isScanModalOpen && hasCameraPermission === null) }>
+                <Button type="submit" disabled={isLoading || (isScanModalOpen && hasCameraPermission === null && !videoRef.current?.srcObject) }>
                   {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : "Process Barcode Payment"}
                 </Button>
               </DialogFooter>
@@ -341,3 +339,4 @@ export default function MakePurchasePage() {
     </div>
   );
 }
+
