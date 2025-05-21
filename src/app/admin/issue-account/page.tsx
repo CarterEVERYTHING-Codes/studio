@@ -10,16 +10,18 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { issueNewAccountAction, type IssueAccountFormValues } from "@/actions/adminActions";
+import { issueNewAccountAction } from "@/actions/adminActions";
 import { useState } from "react";
 import type { Account } from "@/lib/types";
-import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle, AlertCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle, AlertCircle as ImportedAlertCircle, User, KeyRound } from "lucide-react"; // Renamed to avoid conflict
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const issueAccountSchema = z.object({
   accountHolderName: z.string().min(2, "Account holder name is required (min 2 chars)."),
   email: z.string().email("Invalid email address."),
+  username: z.string().min(3, "Username must be at least 3 characters."),
+  password: z.string().min(6, "Password must be at least 6 characters."),
   phoneNumber: z.string().optional().refine(val => !val || /^\d{10,15}$/.test(val), {
     message: "Phone number must be 10-15 digits, or leave empty.",
   }),
@@ -31,11 +33,19 @@ const issueAccountSchema = z.object({
   ),
 });
 
+// Define a type for the form values based on the schema
+export type IssueAccountFormValues = z.infer<typeof issueAccountSchema>;
+
+interface IssuedDetails {
+  account: Account;
+  username: string;
+  passwordForDisplay: string;
+}
 
 export default function IssueAccountPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  const [issuedAccount, setIssuedAccount] = useState<Account | null>(null);
+  const [issuedDetails, setIssuedDetails] = useState<IssuedDetails | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
 
   const form = useForm<IssueAccountFormValues>({
@@ -43,6 +53,8 @@ export default function IssueAccountPage() {
     defaultValues: {
       accountHolderName: "",
       email: "",
+      username: "",
+      password: "",
       phoneNumber: "",
       initialDeposit: 0,
     },
@@ -51,12 +63,14 @@ export default function IssueAccountPage() {
   const onSubmit: SubmitHandler<IssueAccountFormValues> = async (data) => {
     setIsLoading(true);
     setFormError(null);
-    setIssuedAccount(null);
-    const result = await issueNewAccountAction({ ...data, initialDeposit: data.initialDeposit || 0 });
+    setIssuedDetails(null);
+    // Ensure initialDeposit is a number, defaulting to 0 if undefined
+    const payload = { ...data, initialDeposit: data.initialDeposit || 0 };
+    const result = await issueNewAccountAction(payload);
     setIsLoading(false);
 
-    if (result.success && result.account) {
-      setIssuedAccount(result.account);
+    if (result.success && result.details) {
+      setIssuedDetails(result.details);
       toast({
         title: "Success!",
         description: result.message,
@@ -83,7 +97,7 @@ export default function IssueAccountPage() {
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><CreditCard className="text-primary"/> Issue New Account</CardTitle>
           <CardDescription>
-            Enter the new account holder's details. Card number, CVV, expiry, and barcode will be generated automatically.
+            Enter the new account holder's details, including username and password. Card number, CVV, expiry, and barcode will be generated automatically.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -117,6 +131,32 @@ export default function IssueAccountPage() {
                     <FormLabel>Email Address</FormLabel>
                     <FormControl>
                       <Input type="email" placeholder="e.g., john.doe@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="username"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1"><User className="h-4 w-4 text-muted-foreground"/> Username</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Enter desired username" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="flex items-center gap-1"><KeyRound className="h-4 w-4 text-muted-foreground"/> Password</FormLabel>
+                    <FormControl>
+                      <Input type="password" placeholder="Enter a secure password" {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -159,27 +199,31 @@ export default function IssueAccountPage() {
         </CardContent>
       </Card>
 
-      {issuedAccount && (
+      {issuedDetails && (
         <Card className="max-w-2xl mx-auto mt-8 shadow-lg bg-green-50 border-green-200">
           <CardHeader>
             <CardTitle className="text-xl text-green-700 flex items-center gap-2"><CheckCircle /> Account Issued Successfully!</CardTitle>
             <CardDescription className="text-green-600">
-              The following account details have been generated for {issuedAccount.accountHolderName}:
+              The following account details have been generated for {issuedDetails.account.accountHolderName}:
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3 text-sm">
-            <p><strong>Account Holder:</strong> {issuedAccount.accountHolderName}</p>
-            <p><strong>Email:</strong> {issuedAccount.email}</p>
-            {issuedAccount.phoneNumber && <p><strong>Phone:</strong> {issuedAccount.phoneNumber}</p>}
-            <p><strong>Card Number:</strong> <span className="font-mono">{issuedAccount.cardNumber}</span></p>
-            <p><strong>CVV:</strong> <span className="font-mono">{issuedAccount.cvv}</span></p>
-            <p><strong>Expiry Date:</strong> <span className="font-mono">{issuedAccount.expiryDate}</span></p>
-            <p><strong>Barcode:</strong> <span className="font-mono">{issuedAccount.barcode}</span></p>
-            <p><strong>Initial Balance:</strong> ${issuedAccount.balance.toFixed(2)}</p>
+            <p><strong>Account Holder:</strong> {issuedDetails.account.accountHolderName}</p>
+            <p><strong>Email:</strong> {issuedDetails.account.email}</p>
+            {issuedDetails.account.phoneNumber && <p><strong>Phone:</strong> {issuedDetails.account.phoneNumber}</p>}
+            <p><strong>Card Number:</strong> <span className="font-mono">{issuedDetails.account.cardNumber}</span></p>
+            <p><strong>CVV:</strong> <span className="font-mono">{issuedDetails.account.cvv}</span></p>
+            <p><strong>Expiry Date:</strong> <span className="font-mono">{issuedDetails.account.expiryDate}</span></p>
+            <p><strong>Barcode:</strong> <span className="font-mono">{issuedDetails.account.barcode}</span></p>
+            <p><strong>Initial Balance:</strong> ${issuedDetails.account.balance.toFixed(2)}</p>
             <Alert variant="default" className="bg-primary/10 border-primary/20 text-primary">
-                <AlertCircle className="h-4 w-4" />
-                <AlertTitle>Important</AlertTitle>
-                <AlertDescription>Please ensure the new user is informed of their login credentials (default password: 'password123', username is based on email).</AlertDescription>
+                <ImportedAlertCircle className="h-4 w-4" />
+                <AlertTitle>User Credentials</AlertTitle>
+                <AlertDescription>
+                    Please provide the following credentials to the user:
+                    <br /><strong>Username:</strong> <span className="font-mono">{issuedDetails.username}</span>
+                    <br /><strong>Password:</strong> <span className="font-mono">{issuedDetails.passwordForDisplay}</span> (Instruct user to change it if desired)
+                </AlertDescription>
             </Alert>
           </CardContent>
         </Card>
