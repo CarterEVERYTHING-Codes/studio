@@ -76,9 +76,9 @@ export const mockAccounts: Account[] = [
     accountHolderName: "Bob The Builder",
     email: "bob@example.com",
     cardNumber: "4************2222",
-    cvv: "456",
+    cvv: "123",
     expiryDate: "10/26",
-    barcode: "22222222",
+    barcode: "12345678",
     balance: 320.00,
     transactions: generateTransactions("user2-acc", 3),
   },
@@ -133,10 +133,6 @@ export const addMockTransaction = (transaction: Transaction): void => {
         // toAccount.balance += transaction.amount; // if amount is positive for destination
         // If transaction.amount from source was negative, then toAccount.balance -= transaction.amount
         // Assuming transaction.amount is positive for the "credit" side.
-        // The existing addMockTransaction in user code has this logic:
-        // toAccount.balance += transaction.amount; (for addMockTransaction)
-        // and for direct transaction: toAccount.balance += transaction.amount (deposit)
-        // Let's ensure consistency: a positive amount means credit to 'toAccountId', debit from 'fromAccountId'
         // So if tx.amount is +50, fromAcc loses 50, toAcc gains 50.
         // Current logic where addMockTransaction is called:
         // - makeCardPaymentAction: amount is positive, newTransaction.amount = -amount. So fromAccount.balance += (-amount)
@@ -149,19 +145,6 @@ export const addMockTransaction = (transaction: Transaction): void => {
         // So account X balance changes by tx.amount. Account Y (if tracked) would get +value.
         // The current mock model for business doesn't track balances for businessId itself in mockAccounts,
         // but for user-to-user it should be correct.
-
-        toAccount.balance += Math.abs(transaction.amount); // Assuming positive amount benefits toAccount
-        // If transaction.amount is already correctly signed for toAccount, then it's just:
-        // toAccount.balance += transaction.amount;
-        // Let's stick to the original balance logic which seemed to be:
-        // fromAccount.balance -= Math.abs(transaction.amount)
-        // toAccount.balance += Math.abs(transaction.amount)
-        // But the addMockTransaction takes a signed amount.
-        // It's simpler if transaction.amount is always positive, and type dictates debit/credit.
-        // However, the current system uses signed amounts.
-        // So, if transaction.amount is -50 (a purchase):
-        //  - fromAccount gets -50 added to its balance.
-        //  - toAccount should get +50.
 
         // Let's refine based on structure:
         // transaction.amount is the value that affects fromAccountId's balance.
@@ -190,3 +173,4 @@ export const getAccountByCardNumber = (cardNumber: string): Account | undefined 
 export const getAccountByBarcode = (barcode: string): Account | undefined => {
   return mockAccounts.find(acc => acc.barcode === barcode);
 }
+
