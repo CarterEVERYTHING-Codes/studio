@@ -1,6 +1,12 @@
 
 import type { User, Account, Transaction, UserRole } from "@/lib/types";
 
+export const MAIN_ADMIN_USER_ID = "mainAdminUser";
+export const MAIN_ADMIN_ACCOUNT_ID = "mainAdminAccount";
+export const CAMPUS_STORE_BUSINESS_USER_ID = "business1";
+export const CAMPUS_STORE_BUSINESS_ACCOUNT_ID = "business1-acc";
+
+
 export const mockUsers: User[] = [
   {
     id: "admin1",
@@ -11,7 +17,15 @@ export const mockUsers: User[] = [
     email: "admin@example.com",
   },
   {
-    id: "business1",
+    id: MAIN_ADMIN_USER_ID,
+    username: "mainadmin",
+    password: "password123",
+    role: "admin", // Main Admin still has admin role for access
+    name: "Main Admin",
+    email: "mainadmin@campusflow.com",
+  },
+  {
+    id: CAMPUS_STORE_BUSINESS_USER_ID,
     username: "business",
     password: "password123",
     role: "business",
@@ -46,10 +60,11 @@ const generateTransactions = (accountId: string, count: number): Transaction[] =
       id: `txn-${accountId}-${i + 1}`,
       date: new Date(Date.now() - Math.random() * 10000000000).toISOString(),
       description: type === "purchase" ? `Purchase at Vendor ${String.fromCharCode(65 + i)}` : "Pocket Money Deposit",
-      amount: type === "purchase" ? -amount : amount,
+      amount: type === "purchase" ? -amount : amount, // Signed amount
       type: type,
-      toAccountId: type === "purchase" ? `vendor${i}` : accountId,
-      fromAccountId: type === "purchase" ? accountId : `source${i}`,
+      // For these generic transactions, from/to might be less specific
+      fromAccountId: type === "purchase" ? accountId : `source-external-${i}`,
+      toAccountId: type === "purchase" ? `vendor-external-${i}` : accountId,
     });
   }
   return transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -57,6 +72,30 @@ const generateTransactions = (accountId: string, count: number): Transaction[] =
 
 
 export const mockAccounts: Account[] = [
+  {
+    id: MAIN_ADMIN_ACCOUNT_ID,
+    userId: MAIN_ADMIN_USER_ID,
+    accountHolderName: "Main Admin Special Account",
+    email: "mainadmin@campusflow.com",
+    cardNumber: "4************0000", // Placeholder
+    cvv: "000", // Placeholder
+    expiryDate: "01/99", // Placeholder
+    barcode: "00000000", // Placeholder
+    balance: 0, // Starts with 0, accumulates fees
+    transactions: [],
+  },
+  {
+    id: CAMPUS_STORE_BUSINESS_ACCOUNT_ID,
+    userId: CAMPUS_STORE_BUSINESS_USER_ID,
+    accountHolderName: "Campus Store Account",
+    email: "store@example.com",
+    cardNumber: "5************5555", // Placeholder for business card if needed
+    cvv: "555", // Placeholder
+    expiryDate: "01/99", // Placeholder
+    barcode: "55555555", // Placeholder for business barcode if needed
+    balance: 1000, // Initial float for the business
+    transactions: [],
+  },
   {
     id: "user1-acc",
     userId: "user1",
@@ -86,83 +125,50 @@ export const mockAccounts: Account[] = [
 
 export let allTransactions: Transaction[] = mockAccounts.reduce((acc, curr) => acc.concat(curr.transactions), [] as Transaction[]);
 
-// Function to add a new account (simulates DB write)
-// The user associated with this account should be added to mockUsers separately by the calling action.
 export const addMockAccount = (account: Account): void => {
   mockAccounts.push(account);
-  // Add transactions from the new account to the global list
   if (account.transactions && account.transactions.length > 0) {
-      // A simple concat might lead to duplicates if transactions can be added from multiple places.
-      // For this app, we assume new account transactions are unique.
       allTransactions = allTransactions.concat(account.transactions);
-      // Sort all transactions by date after adding new ones (optional, but good for display)
       allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 };
 
-// The addMockAdmin function used to be here, but its logic was simple enough
-// to be moved directly into the addAdminAction in adminActions.ts for this change.
-// If it were more complex, it would be modified here.
-
-// Function to add a transaction (simulates DB write)
+// This function now correctly handles updating balances for from/to accounts
+// based on the signed transaction.amount.
+// transaction.amount is the change for fromAccountId.
+// toAccountId receives -transaction.amount.
 export const addMockTransaction = (transaction: Transaction): void => {
-  allTransactions.unshift(transaction); // Add to the beginning for chronological order (newest first)
+  allTransactions.unshift(transaction); // Add to global list
 
-  // Update balances for relevant accounts
+  // Update From Account
   if (transaction.fromAccountId) {
     const fromAccount = mockAccounts.find(acc => acc.id === transaction.fromAccountId);
     if (fromAccount) {
-      // Amount is negative for purchase/withdrawal, so direct addition works.
-      // For a transfer, amount would be positive, so fromAccount.balance -= transaction.amount
-      if (transaction.type === "purchase" || transaction.type === "withdrawal" || transaction.type === "transfer") {
-         // Assuming transaction.amount is negative for these types from the source perspective
-         // Or, if amount is always positive, then fromAccount.balance -= transaction.amount;
-         fromAccount.balance += transaction.amount; // if amount is already correctly signed for source
-      }
-      // Add transaction to the account's list if not already there (e.g., for transfers)
-      if (!fromAccount.transactions.find(t => t.id === transaction.id)) {
-        fromAccount.transactions.unshift(transaction);
-      }
+      fromAccount.balance += transaction.amount; // transaction.amount is already signed for the 'from' side
+      fromAccount.transactions.unshift(transaction);
+      fromAccount.transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
   }
+
+  // Update To Account
   if (transaction.toAccountId) {
     const toAccount = mockAccounts.find(acc => acc.id === transaction.toAccountId);
     if (toAccount) {
-      // For deposit/transfer, amount would be positive.
-      if (transaction.type === "deposit" || transaction.type === "transfer") {
-        // toAccount.balance += transaction.amount; // if amount is positive for destination
-        // If transaction.amount from source was negative, then toAccount.balance -= transaction.amount
-        // Assuming transaction.amount is positive for the "credit" side.
-        // So if tx.amount is +50, fromAcc loses 50, toAcc gains 50.
-        // Current logic where addMockTransaction is called:
-        // - makeCardPaymentAction: amount is positive, newTransaction.amount = -amount. So fromAccount.balance += (-amount)
-        // - makeBarcodePaymentAction: amount is positive, newTransaction.amount = -amount. So fromAccount.balance += (-amount)
-        // - manageFundsAction:
-        //    - deposit: amount positive, txAmount = amount. toAccount.balance += amount
-        //    - withdraw: amount positive, txAmount = -amount. fromAccount.balance += (-amount)
-        // This means transaction.amount is already signed correctly for its primary leg.
-        // If it's a "purchase" from account X to business Y, tx.amount is -value, tx.fromAccountId=X, tx.toAccountId=Y
-        // So account X balance changes by tx.amount. Account Y (if tracked) would get +value.
-        // The current mock model for business doesn't track balances for businessId itself in mockAccounts,
-        // but for user-to-user it should be correct.
-
-        // Let's refine based on structure:
-        // transaction.amount is the value that affects fromAccountId's balance.
-        // So if fromAccountId has -50, its balance reduces by 50.
-        // toAccountId should then receive +50.
-        if(transaction.fromAccountId !== transaction.toAccountId){ // Avoid double effect for self-transfers
-             toAccount.balance -= transaction.amount; // If amount for fromAccount is -50, toAccount gets -(-50) = +50.
-        }
-
-      }
-      // Add transaction to the account's list
-      if (!toAccount.transactions.find(t => t.id === transaction.id)) {
-        toAccount.transactions.unshift(transaction);
+      // If it's a transfer to another tracked account, their balance increases by the positive value
+      // (or decreases if the original transaction.amount was positive, which means a debit from 'toAccount')
+      toAccount.balance -= transaction.amount; // if amount is -50 for fromAcc, toAcc gets -(-50) = +50
+      
+      // Create a corresponding transaction for the 'to' account if it's a different party for their records
+      // However, for simplicity, we often show the same transaction from multiple perspectives.
+      // Let's ensure the transaction is in the toAccount's list as well.
+      if (!toAccount.transactions.find(t => t.id === transaction.id && t.fromAccountId === transaction.fromAccountId && t.toAccountId === transaction.toAccountId)) {
+         // We might want a slightly different transaction object for the receiver's perspective
+         // For now, let's add the same one, implies shared visibility or a simplified model.
+         toAccount.transactions.unshift({...transaction}); // Add a copy
+         toAccount.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       }
     }
   }
-  // Sort account transactions (optional, but good for display)
-  mockAccounts.forEach(acc => acc.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
 };
 
 
@@ -173,4 +179,3 @@ export const getAccountByCardNumber = (cardNumber: string): Account | undefined 
 export const getAccountByBarcode = (barcode: string): Account | undefined => {
   return mockAccounts.find(acc => acc.barcode === barcode);
 }
-

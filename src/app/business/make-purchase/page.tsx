@@ -83,12 +83,13 @@ export default function MakePurchasePage() {
         stream.getTracks().forEach(track => track.stop());
         videoElementForCleanup.srcObject = null;
       }
-      setHasCameraPermission(null);
+      setHasCameraPermission(null); // Reset camera permission status when modal closes
       return; 
     }
 
+    // This effect runs when isScanModalOpen becomes true
     const getCameraPermission = async () => {
-      setHasCameraPermission(null); 
+      setHasCameraPermission(null); // Indicate loading state for permission
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         toast({
           variant: 'destructive',
@@ -100,9 +101,9 @@ export default function MakePurchasePage() {
       }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
-        if (videoRef.current) { 
+        if (videoRef.current) { // Check if videoRef is still current (modal might have closed quickly)
           videoRef.current.srcObject = stream;
-        } else { 
+        } else { // If modal closed before stream assigned, stop tracks
           stream.getTracks().forEach(track => track.stop());
         }
         setHasCameraPermission(true);
@@ -119,28 +120,32 @@ export default function MakePurchasePage() {
 
     getCameraPermission();
 
+    // Cleanup for this specific effect instance when modal closes or component unmounts
     return () => {
       if (videoElementForCleanup && videoElementForCleanup.srcObject) {
         const stream = videoElementForCleanup.srcObject as MediaStream;
+        // Ensure tracks are live before stopping to avoid errors if already stopped
         if (stream.getTracks().some(track => track.readyState === 'live')) {
              stream.getTracks().forEach(track => track.stop());
         }
       }
     };
-  }, [isScanModalOpen, toast]);
+  }, [isScanModalOpen, toast]); // Only re-run if isScanModalOpen or toast changes
 
 
   useEffect(() => {
-    const videoElement = videoRef.current; 
+    const videoElement = videoRef.current; // Capture for cleanup
 
     if (isScanModalOpen && hasCameraPermission === true && videoElement && videoElement.srcObject) {
       if (!codeReaderRef.current) {
         codeReaderRef.current = new BrowserMultiFormatReader();
       }
-      const readerInstance = codeReaderRef.current; 
+      const readerInstance = codeReaderRef.current; // Capture for use in this effect
 
       const startScan = () => {
+        // Guard against calling decodeFromVideoElement if reader or videoElement is not ready
         if (!readerInstance || !videoElement || !videoElement.srcObject) {
+          // console.warn("Attempted to start scan without ready reader or video element.");
           return;
         }
         try {
@@ -148,9 +153,10 @@ export default function MakePurchasePage() {
             if (result) {
               scanConfirmForm.setValue('barcode', result.getText(), { shouldValidate: true });
               toast({ title: "Barcode Scanned!", description: `Code: ${result.getText()}` });
+              // Optionally, stop scanning after first successful scan: controls.stop();
             }
             if (error) {
-              if (!(error && error.name === 'NotFoundException')) {
+              if (!(error && error.name === 'NotFoundException')) { // Ignore NotFoundException, it's common
                 console.warn('Barcode scanning error:', error);
               }
             }
@@ -165,9 +171,10 @@ export default function MakePurchasePage() {
         }
       };
       
+      // Ensure video is playing before attempting to scan
       const playAndScan = async () => {
         try {
-            if (videoElement.paused) {
+            if (videoElement.paused) { // Only play if paused
                 await videoElement.play();
             }
             startScan();
@@ -182,27 +189,31 @@ export default function MakePurchasePage() {
       } else {
         const canPlayListener = () => {
             playAndScan();
-            videoElement.removeEventListener('canplay', canPlayListener); 
+            videoElement.removeEventListener('canplay', canPlayListener); // Clean up listener
         };
         videoElement.addEventListener('canplay', canPlayListener);
       }
     }
 
+    // Cleanup function for this effect
     return () => {
       if (codeReaderRef.current && typeof codeReaderRef.current.reset === 'function') {
-        codeReaderRef.current.reset(); 
+        codeReaderRef.current.reset(); // This should stop scanning and release camera
       } else if (codeReaderRef.current) {
+        // Fallback logging if reset is not a function for some reason
         console.warn("Barcode scanner instance found, but 'reset' method is missing or not a function. Instance:", codeReaderRef.current);
       }
+      // Note: The camera stream itself (videoRef.current.srcObject) is managed by readerInstance.reset()
+      // or by the cleanup in the first useEffect if the scanner wasn't initialized.
     };
-  }, [isScanModalOpen, hasCameraPermission, scanConfirmForm, toast]);
+  }, [isScanModalOpen, hasCameraPermission, scanConfirmForm, toast]); // Dependencies
 
 
   const handleCardPayment: SubmitHandler<CardPaymentFormValues> = async (data) => {
     if (!user) return;
     setIsLoading(true);
     setPaymentResult(null);
-    const result = await makeCardPaymentAction({ ...data, businessAccountId: user.id });
+    const result = await makeCardPaymentAction({ ...data, businessUserId: user.id });
     setIsLoading(false);
     setPaymentResult(result);
     if (result.success) {
@@ -214,9 +225,9 @@ export default function MakePurchasePage() {
   };
 
   const handlePurchaseDetailsSubmit: SubmitHandler<PurchaseDetailsFormValues> = (data) => {
-    setPaymentResult(null); 
+    setPaymentResult(null); // Clear previous payment results
     setCurrentPurchaseDetails(data);
-    scanConfirmForm.reset(); 
+    scanConfirmForm.reset(); // Reset barcode/cvv form for new scan
     setIsScanModalOpen(true);
   };
 
@@ -228,14 +239,14 @@ export default function MakePurchasePage() {
       ...scanData,
       purchaseName: currentPurchaseDetails.purchaseName,
       amount: currentPurchaseDetails.amount,
-      businessAccountId: user.id
+      businessUserId: user.id
     });
     setIsLoading(false);
     setPaymentResult(result);
     if (result.success) {
       toast({ title: "Success!", description: result.message });
       scanConfirmForm.reset();
-      purchaseDetailsForm.reset();
+      purchaseDetailsForm.reset(); // Also reset the main purchase details form
       setIsScanModalOpen(false);
       setCurrentPurchaseDetails(null);
     } else {
@@ -252,7 +263,7 @@ export default function MakePurchasePage() {
       <Card className="max-w-xl mx-auto shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Make a Purchase</CardTitle>
-          <CardDescription>Select payment method and enter details to process a transaction.</CardDescription>
+          <CardDescription>Select payment method and enter details to process a transaction for a customer.</CardDescription>
         </CardHeader>
         <CardContent>
           {paymentResult && (
@@ -271,7 +282,7 @@ export default function MakePurchasePage() {
               <Form {...cardForm}>
                 <form onSubmit={cardForm.handleSubmit(handleCardPayment)} className="space-y-4">
                   <FormField control={cardForm.control} name="cardNumber" render={({ field }) => (
-                    <FormItem><FormLabel>Card Number</FormLabel><FormControl><Input placeholder="Enter card number" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Customer Card Number</FormLabel><FormControl><Input placeholder="Enter card number" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <div className="grid grid-cols-2 gap-4">
                     <FormField control={cardForm.control} name="expiryDate" render={({ field }) => (
@@ -282,7 +293,7 @@ export default function MakePurchasePage() {
                     )} />
                   </div>
                   <FormField control={cardForm.control} name="amount" render={({ field }) => (
-                    <FormItem><FormLabel>Amount ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Enter amount" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)}/></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Purchase Amount ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Enter amount" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)}/></FormControl><FormMessage /></FormItem>
                   )} />
                   <Button type="submit" className="w-full" disabled={isLoading}>
                     {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : "Process Card Payment"}
@@ -294,10 +305,10 @@ export default function MakePurchasePage() {
               <Form {...purchaseDetailsForm}>
                 <form onSubmit={purchaseDetailsForm.handleSubmit(handlePurchaseDetailsSubmit)} className="space-y-4">
                   <FormField control={purchaseDetailsForm.control} name="purchaseName" render={({ field }) => (
-                    <FormItem><FormLabel>Purchase Name</FormLabel><FormControl><Input placeholder="e.g., Lunch, Books" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Purchase Name/Description</FormLabel><FormControl><Input placeholder="e.g., Lunch, Books" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={purchaseDetailsForm.control} name="amount" render={({ field }) => (
-                    <FormItem><FormLabel>Amount ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Enter total amount" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)}/></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Purchase Amount ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Enter total amount" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)}/></FormControl><FormMessage /></FormItem>
                   )} />
                   <Button type="submit" className="w-full">
                     <ScanLine className="mr-2 h-5 w-5" /> Proceed to Scan/Enter Barcode
@@ -311,8 +322,9 @@ export default function MakePurchasePage() {
 
       <Dialog open={isScanModalOpen} onOpenChange={(open) => {
           setIsScanModalOpen(open);
-          if (!open) { 
-            scanConfirmForm.reset();
+          if (!open) { // When dialog is closed
+            scanConfirmForm.reset(); // Clear scan form fields
+            // Camera and scanner cleanup is handled by useEffect hooks
           }
       }}>
         <DialogContent className="sm:max-w-md">
@@ -320,7 +332,7 @@ export default function MakePurchasePage() {
             <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5 text-primary"/> Scan Barcode & Confirm</DialogTitle>
             {currentPurchaseDetails && (
               <DialogDescription>
-                Confirming purchase for: <strong>{currentPurchaseDetails.purchaseName}</strong> - Total: <strong>${currentPurchaseDetails.amount.toFixed(2)}</strong>.
+                Confirming purchase for: <strong>{currentPurchaseDetails.purchaseName}</strong> - Item Cost: <strong>${currentPurchaseDetails.amount.toFixed(2)}</strong>.
                 The camera will attempt to scan the barcode. You can also enter it manually along with the CVV.
               </DialogDescription>
             )}
@@ -329,9 +341,10 @@ export default function MakePurchasePage() {
           <div className="my-4 space-y-2">
             <label className="text-sm font-medium">Camera Preview</label>
             <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
+              {/* Video element is always rendered when modal is open to ensure consistency */}
               <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
               
-              {hasCameraPermission === null && ( 
+              {hasCameraPermission === null && ( // Loading state
                 <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                   <p className="ml-2 text-sm text-muted-foreground">Accessing camera...</p>
@@ -339,7 +352,7 @@ export default function MakePurchasePage() {
               )}
             </div>
             
-            {hasCameraPermission === false && ( 
+            {hasCameraPermission === false && ( // Permission denied or error
               <Alert variant="destructive" className="mt-2">
                 <XCircle className="h-4 w-4" />
                 <AlertTitle>Camera Access Denied/Unavailable</AlertTitle>
@@ -348,12 +361,12 @@ export default function MakePurchasePage() {
                 </AlertDescription>
               </Alert>
             )}
-            {hasCameraPermission === true && ( 
+            {hasCameraPermission === true && ( // Permission granted
                  <Alert variant="default" className="mt-2 border-primary/20 text-primary bg-primary/10">
                     <ScanLine className="h-4 w-4" />
                     <AlertTitle>Scanning Active</AlertTitle>
                     <AlertDescription>
-                      Point the barcode at the camera. Manual entry is also available below.
+                      Point the customer's barcode at the camera. Manual entry is also available below.
                     </AlertDescription>
                 </Alert>
             )}
@@ -362,10 +375,10 @@ export default function MakePurchasePage() {
           <Form {...scanConfirmForm}>
             <form onSubmit={scanConfirmForm.handleSubmit(handleBarcodePayment)} className="space-y-4">
               <FormField control={scanConfirmForm.control} name="barcode" render={({ field }) => (
-                <FormItem><FormLabel>8-Digit Barcode</FormLabel><FormControl><Input placeholder="Scanned or enter manually" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Customer's 8-Digit Barcode</FormLabel><FormControl><Input placeholder="Scanned or enter manually" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <FormField control={scanConfirmForm.control} name="cvv" render={({ field }) => (
-                <FormItem><FormLabel>Account CVV</FormLabel><FormControl><Input type="password" placeholder="CVV" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormItem><FormLabel>Customer's Account CVV</FormLabel><FormControl><Input type="password" placeholder="CVV" {...field} /></FormControl><FormMessage /></FormItem>
               )} />
               <DialogFooter className="gap-2 sm:gap-0">
                 <Button type="button" variant="outline" onClick={() => setIsScanModalOpen(false)}>Cancel</Button>
@@ -380,3 +393,4 @@ export default function MakePurchasePage() {
     </div>
   );
 }
+
