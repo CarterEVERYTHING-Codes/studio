@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { LoadingLink } from "@/components/shared/LoadingLink";
-import { ArrowLeft, Loader2, User, KeyRound, RefreshCw, Lock, CreditCard, Ban, BarChartBig, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
+import { ArrowLeft, Loader2, User, KeyRound, RefreshCw, CreditCard, Ban, BarChartBig, ShieldAlert, CheckCircle, XCircle } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertTitle, AlertDescription} from "@/components/ui/alert";
 
@@ -90,16 +90,14 @@ export default function CardSettingsPage() {
   });
 
   useEffect(() => {
-      if (user && account) {
-          const currentUserDetails = mockUsers.find(u => u.id === user.id);
-          usernameForm.reset({ newUsername: currentUserDetails?.username || "" });
-          purchaseLimitForm.reset({ limit: account.purchaseLimitPerTransaction === null || account.purchaseLimitPerTransaction === undefined ? undefined : account.purchaseLimitPerTransaction });
-      } else if (user) { 
-          const currentUserDetails = mockUsers.find(u => u.id === user.id);
-          usernameForm.reset({ newUsername: currentUserDetails?.username || "" });
-          purchaseLimitForm.reset({ limit: undefined });
-      }
-  }, [account, user, usernameForm, purchaseLimitForm]);
+    if (user && account) {
+        const currentUserDetails = mockUsers.find(u => u.id === user.id);
+        usernameForm.reset({ newUsername: currentUserDetails?.username || "" });
+        purchaseLimitForm.reset({ limit: account.purchaseLimitPerTransaction === null || account.purchaseLimitPerTransaction === undefined ? undefined : account.purchaseLimitPerTransaction });
+    }
+  // usernameForm and purchaseLimitForm are stable references from useForm, so they are fine in deps.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [account, user]);
 
 
   const handleFormAction = useCallback(async (
@@ -112,9 +110,9 @@ export default function CardSettingsPage() {
     
     const result = await actionFn(); 
 
-    if (user) {
-        const updatedAccount = getAccountByUserId(user.id);
-        setAccount(updatedAccount ? { ...updatedAccount } : null); 
+    if (user) { // Re-fetch account details to reflect changes
+        const updatedAccountData = getAccountByUserId(user.id);
+        setAccount(updatedAccountData ? { ...updatedAccountData } : null);
     }
     
     setFormResults(prev => ({...prev, [actionName]: result}));
@@ -161,29 +159,53 @@ export default function CardSettingsPage() {
   };
 
   const onToggleFreeze = async (freeze: boolean) => {
-    if (!user) return;
+    if (!user || !account) return;
+
+    const originalFreezeState = account.isFrozen;
+    // Optimistic UI update
+    setAccount(prev => prev ? { ...prev, isFrozen: freeze } : null);
     setIsLoadingFreeze(true);
     setFreezeResult(null);
+
     const result = await toggleFreezeCardAction({ userId: user.id, freeze });
-    const updatedAccount = getAccountByUserId(user.id);
-    setAccount(updatedAccount ? { ...updatedAccount } : null);
-    setFreezeResult(result);
     setIsLoadingFreeze(false);
-    if (result.success) toast({ title: "Success!", description: result.message });
-    else toast({ title: "Error", description: result.message, variant: "destructive" });
+    setFreezeResult(result);
+
+    if (result.success) {
+      toast({ title: "Success!", description: result.message });
+      // Data is already updated in mock-data, ensure local state is consistent
+      const finalAccountState = getAccountByUserId(user.id);
+      setAccount(finalAccountState ? { ...finalAccountState } : null);
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
+      // Revert optimistic update on failure
+      setAccount(prev => prev ? { ...prev, isFrozen: originalFreezeState } : null);
+    }
   };
 
   const onToggleBarcodeDisabled = async (disable: boolean) => {
-    if (!user) return;
+    if (!user || !account) return;
+
+    const originalBarcodeDisabledState = account.isBarcodeDisabled;
+    // Optimistic UI update
+    setAccount(prev => prev ? { ...prev, isBarcodeDisabled: disable } : null);
     setIsLoadingBarcode(true);
     setBarcodeResult(null);
+
     const result = await toggleBarcodeDisabledAction({ userId: user.id, disable });
-    const updatedAccount = getAccountByUserId(user.id);
-    setAccount(updatedAccount ? { ...updatedAccount } : null);
-    setBarcodeResult(result);
     setIsLoadingBarcode(false);
-    if (result.success) toast({ title: "Success!", description: result.message });
-    else toast({ title: "Error", description: result.message, variant: "destructive" });
+    setBarcodeResult(result);
+
+    if (result.success) {
+      toast({ title: "Success!", description: result.message });
+      // Data is already updated in mock-data, ensure local state is consistent
+      const finalAccountState = getAccountByUserId(user.id);
+      setAccount(finalAccountState ? { ...finalAccountState } : null);
+    } else {
+      toast({ title: "Error", description: result.message, variant: "destructive" });
+      // Revert optimistic update on failure
+      setAccount(prev => prev ? { ...prev, isBarcodeDisabled: originalBarcodeDisabledState } : null);
+    }
   };
 
 
@@ -351,8 +373,8 @@ export default function CardSettingsPage() {
                         </p>
                     </div>
                     <Switch 
-                        checked={!account.isBarcodeDisabled} 
-                        onCheckedChange={(checked) => onToggleBarcodeDisabled(!checked)}
+                        checked={!account.isBarcodeDisabled} // Switch is "checked" when payments are ENABLED
+                        onCheckedChange={(checked) => onToggleBarcodeDisabled(!checked)} // If checked (enabled), we want to set isBarcodeDisabled to FALSE
                         disabled={isLoadingBarcode}
                         aria-label="Enable/Disable barcode payments"
                     />
