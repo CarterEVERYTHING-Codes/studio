@@ -228,7 +228,7 @@ export default function MakePurchasePage() {
       total,
       cardData: data, 
     });
-    setPaymentResult(null); // Clear previous payment result
+    setPaymentResult(null); 
     setShowCardSummaryModal(true);
   };
   
@@ -334,7 +334,7 @@ export default function MakePurchasePage() {
                   <FormField control={cardForm.control} name="amount" render={({ field }) => (
                     <FormItem><FormLabel>Purchase Amount ($)</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Enter amount" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)}/></FormControl><FormMessage /></FormItem>
                   )} />
-                  <Button type="submit" className="w-full" disabled={isLoading}>
+                  <Button type="submit" className="w-full" disabled={isLoading && showCardSummaryModal}>
                     {isLoading && showCardSummaryModal ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : "Review & Process Card Payment"}
                   </Button>
                 </form>
@@ -363,7 +363,7 @@ export default function MakePurchasePage() {
       <Dialog open={showCardSummaryModal} onOpenChange={(open) => {
           if (!open) {
             setShowCardSummaryModal(false);
-            setCurrentOrderSummary(null); // Clear summary if modal is closed
+            setCurrentOrderSummary(null); 
           } else {
             setShowCardSummaryModal(true);
           }
@@ -405,15 +405,15 @@ export default function MakePurchasePage() {
         </DialogContent>
       </Dialog>
 
-      {/* Barcode Scan Modal (Existing, but with summary added) */}
+      {/* Barcode Scan Modal */}
       <Dialog open={isScanModalOpen} onOpenChange={(open) => {
           setIsScanModalOpen(open);
           if (!open) { 
             scanConfirmForm.reset(); 
           }
       }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
+        <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
+          <DialogHeader className="p-6 pb-2 flex-shrink-0">
             <DialogTitle className="flex items-center gap-2"><Camera className="h-5 w-5 text-primary"/> Scan Barcode & Confirm</DialogTitle>
              {currentPurchaseDetails && (
                 <div className="text-sm text-muted-foreground space-y-1 pt-2">
@@ -427,56 +427,62 @@ export default function MakePurchasePage() {
             )}
           </DialogHeader>
           
-          <div className="my-4 space-y-2">
-            <label className="text-sm font-medium">Camera Preview</label>
-            <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
-              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-              {hasCameraPermission === null && ( 
-                <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  <p className="ml-2 text-sm text-muted-foreground">Accessing camera...</p>
-                </div>
+          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-6">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Camera Preview</label>
+              <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
+                <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+                {hasCameraPermission === null && ( 
+                  <div className="absolute inset-0 flex items-center justify-center bg-muted/80">
+                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    <p className="ml-2 text-sm text-muted-foreground">Accessing camera...</p>
+                  </div>
+                )}
+              </div>
+              
+              {hasCameraPermission === false && ( 
+                <Alert variant="destructive" className="mt-2">
+                  <XCircle className="h-4 w-4" />
+                  <AlertTitle>Camera Access Denied/Unavailable</AlertTitle>
+                  <AlertDescription>
+                    Could not access the camera. Please ensure permissions are granted or enter the barcode manually.
+                  </AlertDescription>
+                </Alert>
+              )}
+              {hasCameraPermission === true && ( 
+                   <Alert variant="default" className="mt-2 border-primary/20 text-primary bg-primary/10">
+                      <ScanLine className="h-4 w-4" />
+                      <AlertTitle>Scanning Active</AlertTitle>
+                      <AlertDescription>
+                        Point the customer's barcode at the camera. Manual entry is also available below.
+                      </AlertDescription>
+                  </Alert>
               )}
             </div>
-            
-            {hasCameraPermission === false && ( 
-              <Alert variant="destructive" className="mt-2">
-                <XCircle className="h-4 w-4" />
-                <AlertTitle>Camera Access Denied/Unavailable</AlertTitle>
-                <AlertDescription>
-                  Could not access the camera. Please ensure permissions are granted or enter the barcode manually.
-                </AlertDescription>
-              </Alert>
-            )}
-            {hasCameraPermission === true && ( 
-                 <Alert variant="default" className="mt-2 border-primary/20 text-primary bg-primary/10">
-                    <ScanLine className="h-4 w-4" />
-                    <AlertTitle>Scanning Active</AlertTitle>
-                    <AlertDescription>
-                      Point the customer's barcode at the camera. Manual entry is also available below.
-                    </AlertDescription>
-                </Alert>
-            )}
-          </div>
 
-          <Form {...scanConfirmForm}>
-            <form onSubmit={scanConfirmForm.handleSubmit(handleBarcodePayment)} className="space-y-4">
-              <FormField control={scanConfirmForm.control} name="barcode" render={({ field }) => (
-                <FormItem><FormLabel>Customer's 8-Digit Barcode</FormLabel><FormControl><Input placeholder="Scanned or enter manually" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <FormField control={scanConfirmForm.control} name="cvv" render={({ field }) => (
-                <FormItem><FormLabel>Customer's Account CVV</FormLabel><FormControl><Input type="password" placeholder="CVV" {...field} /></FormControl><FormMessage /></FormItem>
-              )} />
-              <DialogFooter className="gap-2 sm:gap-0">
-                <Button type="button" variant="outline" onClick={() => setIsScanModalOpen(false)}>Cancel</Button>
-                <Button type="submit" disabled={isLoading || (isScanModalOpen && hasCameraPermission === null) }>
-                  {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : "Process Barcode Payment"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
+            <Form {...scanConfirmForm}>
+              <form onSubmit={scanConfirmForm.handleSubmit(handleBarcodePayment)} className="space-y-4" id="barcodePaymentForm">
+                <FormField control={scanConfirmForm.control} name="barcode" render={({ field }) => (
+                  <FormItem><FormLabel>Customer's 8-Digit Barcode</FormLabel><FormControl><Input placeholder="Scanned or enter manually" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={scanConfirmForm.control} name="cvv" render={({ field }) => (
+                  <FormItem><FormLabel>Customer's Account CVV</FormLabel><FormControl><Input type="password" placeholder="CVV" {...field} /></FormControl><FormMessage /></FormItem>
+                )} />
+              </form>
+            </Form>
+          </div>
+          <DialogFooter className="p-6 pt-2 border-t flex-shrink-0 gap-2 sm:gap-0">
+            <Button type="button" variant="outline" onClick={() => setIsScanModalOpen(false)}>Cancel</Button>
+            <Button 
+              type="submit" 
+              form="barcodePaymentForm"
+              disabled={isLoading || (isScanModalOpen && hasCameraPermission === null) }>
+              {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Processing...</> : "Process Barcode Payment"}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>
   );
 }
+
