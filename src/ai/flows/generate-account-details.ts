@@ -19,7 +19,7 @@ export type GenerateAccountDetailsInput = z.infer<typeof GenerateAccountDetailsI
 const GenerateAccountDetailsOutputSchema = z.object({
   cardNumber: z.string().describe('A realistic but masked card number.'),
   cvv: z.string().describe('A realistic CVV code.'),
-  expiry: z.string().describe('A realistic expiry date in MM/YY format.'),
+  expiry: z.string().describe('A realistic expiry date in MM/YY format, set to one year from account creation.'),
   barcode: z.string().describe('An 8-digit unique barcode.'),
 });
 
@@ -42,10 +42,10 @@ Name: {{{name}}}
 Include:
 - A card number that is masked except for the last 4 digits. Start with a leading 4 for Visa.
 - A CVV code.
-- An expiry date in MM/YY format, expiring one year from now.
+- A plausible expiry date in MM/YY format. (The exact expiry will be set to one year from the current date programmatically).
 - An 8-digit unique barcode.
 
-Ensure the card number passes the Luhn algorithm. Use the current year when calculating the expiry date.`,
+Ensure the card number passes the Luhn algorithm.`,
 });
 
 const generateAccountDetailsFlow = ai.defineFlow(
@@ -55,7 +55,23 @@ const generateAccountDetailsFlow = ai.defineFlow(
     outputSchema: GenerateAccountDetailsOutputSchema,
   },
   async input => {
-    const {output} = await generateAccountDetailsPrompt(input);
-    return output!;
+    const { output: generatedOutput } = await generateAccountDetailsPrompt(input);
+
+    if (!generatedOutput) {
+      throw new Error('AI prompt did not return an output for account details.');
+    }
+
+    // Programmatically set the expiry date to one year from now
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1; // getMonth() is 0-indexed
+    const expiryYear = now.getFullYear() + 1;
+
+    const formattedMonth = currentMonth.toString().padStart(2, '0');
+    const formattedYear = expiryYear.toString().slice(-2); // Get last two digits of the year
+
+    // Override the expiry date from the LLM
+    generatedOutput.expiry = `${formattedMonth}/${formattedYear}`;
+
+    return generatedOutput;
   }
 );
