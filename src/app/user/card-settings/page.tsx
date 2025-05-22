@@ -17,7 +17,7 @@ import {
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel as RHFFormLabel, FormMessage, FormDescription as RHFFormDescription } from "@/components/ui/form";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
@@ -53,8 +53,21 @@ export default function CardSettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [account, setAccount] = useState<Account | null>(null);
-  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
+
+  // State for forms
+  const [formLoading, setFormLoading] = useState<Record<string, boolean>>({});
   const [formResults, setFormResults] = useState<Record<string, {success: boolean, message: string} | null>>({});
+
+  // Dedicated state for non-form actions
+  const [isLoadingRegenerate, setIsLoadingRegenerate] = useState(false);
+  const [regenerateResult, setRegenerateResult] = useState<{success: boolean, message: string} | null>(null);
+  
+  const [isLoadingFreeze, setIsLoadingFreeze] = useState(false);
+  const [freezeResult, setFreezeResult] = useState<{success: boolean, message: string} | null>(null);
+
+  const [isLoadingBarcode, setIsLoadingBarcode] = useState(false);
+  const [barcodeResult, setBarcodeResult] = useState<{success: boolean, message: string} | null>(null);
+
 
   useEffect(() => {
     if (user) {
@@ -81,7 +94,7 @@ export default function CardSettingsPage() {
           const currentUserDetails = mockUsers.find(u => u.id === user.id);
           usernameForm.reset({ newUsername: currentUserDetails?.username || "" });
           purchaseLimitForm.reset({ limit: account.purchaseLimitPerTransaction === null || account.purchaseLimitPerTransaction === undefined ? undefined : account.purchaseLimitPerTransaction });
-      } else if (user) { // account might be null initially or user data might be available before account
+      } else if (user) { 
           const currentUserDetails = mockUsers.find(u => u.id === user.id);
           usernameForm.reset({ newUsername: currentUserDetails?.username || "" });
           purchaseLimitForm.reset({ limit: undefined });
@@ -89,69 +102,90 @@ export default function CardSettingsPage() {
   }, [account, user, usernameForm, purchaseLimitForm]);
 
 
-  const handleAction = async (
+  const handleFormAction = useCallback(async (
     actionName: string, 
-    actionFn: () => Promise<{success: boolean, message: string, newDetails?: Account}>, 
-    formToResetType?: 'username' | 'password' | 'purchaseLimit' | null
+    actionFn: () => Promise<{success: boolean, message: string}>, 
+    formToReset?: 'password' 
   ) => {
-    setIsLoading(prev => ({ ...prev, [actionName]: true }));
+    setFormLoading(prev => ({ ...prev, [actionName]: true }));
     setFormResults(prev => ({...prev, [actionName]: null}));
     
-    const result = await actionFn(); // Action mutates mockData
+    const result = await actionFn(); 
 
-    // Fetch the latest account details from mockData and update the local state
     if (user) {
-        const updatedUserAccount = getAccountByUserId(user.id);
-        setAccount(updatedUserAccount ? { ...updatedUserAccount } : null);
+        const updatedAccount = getAccountByUserId(user.id);
+        setAccount(updatedAccount ? { ...updatedAccount } : null); 
     }
-
-    setIsLoading(prev => ({ ...prev, [actionName]: false })); // Set loading to false AFTER account state is potentially updated
+    
     setFormResults(prev => ({...prev, [actionName]: result}));
+    setFormLoading(prev => ({ ...prev, [actionName]: false }));
 
     if (result.success) {
       toast({ title: "Success!", description: result.message });
-      
-      // Specific form resets if needed
-      if (formToResetType === 'password') {
+      if (formToReset === 'password') {
         passwordForm.reset({ newPassword: "", confirmNewPassword: "" });
       }
-      // usernameForm and purchaseLimitForm are reset by the useEffect watching `account`
-      // Toggles (freeze, barcode) and regenerateCard don't have forms in this way.
-      // If username action was successful, the useEffect will handle resetting usernameForm.
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
     }
-  };
+  }, [user, toast, passwordForm]);
+
 
   const onUsernameSubmit: SubmitHandler<z.infer<typeof updateUsernameSchema>> = async (data) => {
     if (!user) return;
-    await handleAction("username", () => updateUsernameAction({ userId: user.id, newUsername: data.newUsername }), 'username');
+    await handleFormAction("username", () => updateUsernameAction({ userId: user.id, newUsername: data.newUsername }));
   };
 
   const onPasswordSubmit: SubmitHandler<z.infer<typeof updatePasswordSchema>> = async (data) => {
     if (!user) return;
-    await handleAction("password", () => updatePasswordAction({ userId: user.id, newPassword: data.newPassword }), 'password');
-  };
-
-  const onRegenerateCard = async () => {
-    if (!user) return;
-    await handleAction("regenerateCard", () => regenerateCardDetailsAction({ userId: user.id }), null);
-  };
-
-  const onToggleFreeze = async (freeze: boolean) => {
-    if (!user) return;
-    await handleAction("toggleFreeze", () => toggleFreezeCardAction({ userId: user.id, freeze }), null);
+    await handleFormAction("password", () => updatePasswordAction({ userId: user.id, newPassword: data.newPassword }), 'password');
   };
   
   const onPurchaseLimitSubmit: SubmitHandler<z.infer<typeof purchaseLimitSchema>> = async (data) => {
     if (!user) return;
-    await handleAction("purchaseLimit", () => setPurchaseLimitAction({ userId: user.id, limit: data.limit }), 'purchaseLimit');
+    await handleFormAction("purchaseLimit", () => setPurchaseLimitAction({ userId: user.id, limit: data.limit }));
+  };
+
+
+  const onRegenerateCard = async () => {
+    if (!user) return;
+    setIsLoadingRegenerate(true);
+    setRegenerateResult(null);
+    const result = await regenerateCardDetailsAction({ userId: user.id });
+    const updatedAccount = getAccountByUserId(user.id);
+    setAccount(updatedAccount ? { ...updatedAccount } : null);
+    setRegenerateResult(result);
+    setIsLoadingRegenerate(false);
+    if (result.success) toast({ title: "Success!", description: result.message });
+    else toast({ title: "Error", description: result.message, variant: "destructive" });
+  };
+
+  const onToggleFreeze = async (freeze: boolean) => {
+    if (!user) return;
+    setIsLoadingFreeze(true);
+    setFreezeResult(null);
+    const result = await toggleFreezeCardAction({ userId: user.id, freeze });
+    const updatedAccount = getAccountByUserId(user.id);
+    setAccount(updatedAccount ? { ...updatedAccount } : null);
+    setFreezeResult(result);
+    setIsLoadingFreeze(false);
+    if (result.success) toast({ title: "Success!", description: result.message });
+    else toast({ title: "Error", description: result.message, variant: "destructive" });
   };
 
   const onToggleBarcodeDisabled = async (disable: boolean) => {
     if (!user) return;
-    await handleAction("toggleBarcode", () => toggleBarcodeDisabledAction({ userId: user.id, disable }), null);
+    setIsLoadingBarcode(true);
+    setBarcodeResult(null);
+    const result = await toggleBarcodeDisabledAction({ userId: user.id, disable });
+    const updatedAccount = getAccountByUserId(user.id);
+    setAccount(updatedAccount ? { ...updatedAccount } : null);
+    setBarcodeResult(result);
+    setIsLoadingBarcode(false);
+    if (result.success) toast({ title: "Success!", description: result.message });
+    else toast({ title: "Error", description: result.message, variant: "destructive" });
   };
+
 
   if (!user || !account) {
     return (
@@ -162,8 +196,7 @@ export default function CardSettingsPage() {
     );
   }
   
-  const renderFormResult = (actionName: string) => {
-    const result = formResults[actionName];
+  const renderActionResult = (result: {success: boolean, message: string} | null) => {
     if (!result) return null;
     return (
         <Alert variant={result.success ? "default" : "destructive"} className={`mt-2 mb-4 text-xs ${result.success ? 'bg-green-50 border-green-200 text-green-700' : ''}`}>
@@ -189,17 +222,17 @@ export default function CardSettingsPage() {
 
           {/* Account Credentials Section */}
           <section>
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><User className="text-primary"/> Account Credentials</h3>
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><User className="text-primary h-5 w-5"/> Account Credentials</h3>
             <div className="grid md:grid-cols-2 gap-6">
               <Form {...usernameForm}>
                 <form onSubmit={usernameForm.handleSubmit(onUsernameSubmit)} className="space-y-3 p-4 border rounded-md">
                   <RHFFormLabel className="text-md font-medium">Change Username</RHFFormLabel>
-                  {renderFormResult("username")}
+                  {renderActionResult(formResults["username"])}
                   <FormField control={usernameForm.control} name="newUsername" render={({ field }) => (
                     <FormItem><RHFFormLabel className="text-xs">New Username</RHFFormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <Button type="submit" size="sm" disabled={isLoading["username"]}>
-                    {isLoading["username"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                  <Button type="submit" size="sm" disabled={formLoading["username"]}>
+                    {formLoading["username"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                     Update Username
                   </Button>
                 </form>
@@ -207,15 +240,15 @@ export default function CardSettingsPage() {
               <Form {...passwordForm}>
                 <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-3 p-4 border rounded-md">
                   <RHFFormLabel className="text-md font-medium">Change Password</RHFFormLabel>
-                  {renderFormResult("password")}
+                  {renderActionResult(formResults["password"])}
                   <FormField control={passwordForm.control} name="newPassword" render={({ field }) => (
                     <FormItem><RHFFormLabel className="text-xs">New Password</RHFFormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={passwordForm.control} name="confirmNewPassword" render={({ field }) => (
                     <FormItem><RHFFormLabel className="text-xs">Confirm New Password</RHFFormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
-                  <Button type="submit" size="sm" disabled={isLoading["password"]}>
-                    {isLoading["password"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                  <Button type="submit" size="sm" disabled={formLoading["password"]}>
+                    {formLoading["password"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                     Update Password
                   </Button>
                 </form>
@@ -227,9 +260,9 @@ export default function CardSettingsPage() {
 
           {/* Card Management Section */}
           <section>
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><CreditCard className="text-primary"/> Card Management</h3>
-             {renderFormResult("regenerateCard")}
-             {renderFormResult("toggleFreeze")}
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><CreditCard className="text-primary h-5 w-5"/> Card Management</h3>
+             {renderActionResult(regenerateResult)}
+             {renderActionResult(freezeResult)}
             <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
@@ -240,8 +273,8 @@ export default function CardSettingsPage() {
                     </div>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
-                        <Button variant="outline" size="sm" disabled={isLoading["regenerateCard"]}>
-                            {isLoading["regenerateCard"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <RefreshCw className="h-4 w-4" />} 
+                        <Button variant="outline" size="sm" disabled={isLoadingRegenerate}>
+                            {isLoadingRegenerate ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <RefreshCw className="h-4 w-4 mr-1" />} 
                             Re-Issue Card
                         </Button>
                         </AlertDialogTrigger>
@@ -268,7 +301,7 @@ export default function CardSettingsPage() {
                     <Switch 
                         checked={account.isFrozen} 
                         onCheckedChange={(checked) => onToggleFreeze(checked)}
-                        disabled={isLoading["toggleFreeze"]}
+                        disabled={isLoadingFreeze}
                         aria-label="Freeze card purchases"
                     />
                 </div>
@@ -279,12 +312,13 @@ export default function CardSettingsPage() {
 
           {/* Security & Limits Section */}
           <section>
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><ShieldAlert className="text-primary"/> Security & Limits</h3>
+            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><ShieldAlert className="text-primary h-5 w-5"/> Security & Limits</h3>
+            {renderActionResult(barcodeResult)}
             <div className="space-y-4">
                 <Form {...purchaseLimitForm}>
                     <form onSubmit={purchaseLimitForm.handleSubmit(onPurchaseLimitSubmit)} className="p-4 border rounded-md space-y-3">
                         <RHFFormLabel className="text-md font-medium flex items-center gap-2"><BarChartBig className="h-4 w-4"/> Per Transaction Purchase Limit</RHFFormLabel> 
-                        {renderFormResult("purchaseLimit")}
+                        {renderActionResult(formResults["purchaseLimit"])}
                         <FormField control={purchaseLimitForm.control} name="limit" render={({ field }) => (
                             <FormItem>
                                 <RHFFormLabel className="text-xs">Limit Amount ($)</RHFFormLabel>
@@ -302,13 +336,13 @@ export default function CardSettingsPage() {
                                 <FormMessage />
                             </FormItem>
                         )} />
-                        <Button type="submit" size="sm" disabled={isLoading["purchaseLimit"]}>
-                            {isLoading["purchaseLimit"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                        <Button type="submit" size="sm" disabled={formLoading["purchaseLimit"]}>
+                            {formLoading["purchaseLimit"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
                              Set Limit
                         </Button>
                     </form>
                 </Form>
-                 {renderFormResult("toggleBarcode")}
+                
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
                         <Label className="font-medium">Barcode Payments</Label>
@@ -319,7 +353,7 @@ export default function CardSettingsPage() {
                     <Switch 
                         checked={!account.isBarcodeDisabled} 
                         onCheckedChange={(checked) => onToggleBarcodeDisabled(!checked)}
-                        disabled={isLoading["toggleBarcode"]}
+                        disabled={isLoadingBarcode}
                         aria-label="Enable/Disable barcode payments"
                     />
                 </div>
