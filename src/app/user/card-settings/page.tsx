@@ -19,7 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel as RHFFormLabel, FormMessage, FormDescription as RHFFormDescription } from "@/components/ui/form";
-import { Label } from "@/components/ui/label";
+import { Label } from "@/components/ui/label"; // Generic Label
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { LoadingLink } from "@/components/shared/LoadingLink";
@@ -54,11 +54,9 @@ export default function CardSettingsPage() {
   const { toast } = useToast();
   const [account, setAccount] = useState<Account | null>(null);
 
-  // State for forms
   const [formLoading, setFormLoading] = useState<Record<string, boolean>>({});
   const [formResults, setFormResults] = useState<Record<string, {success: boolean, message: string} | null>>({});
 
-  // Dedicated state for non-form actions
   const [isLoadingRegenerate, setIsLoadingRegenerate] = useState(false);
   const [regenerateResult, setRegenerateResult] = useState<{success: boolean, message: string} | null>(null);
   
@@ -78,6 +76,7 @@ export default function CardSettingsPage() {
   
   const usernameForm = useForm<z.infer<typeof updateUsernameSchema>>({
     resolver: zodResolver(updateUsernameSchema),
+    // defaultValues will be set by useEffect below
   });
 
   const passwordForm = useForm<z.infer<typeof updatePasswordSchema>>({
@@ -87,48 +86,43 @@ export default function CardSettingsPage() {
   
   const purchaseLimitForm = useForm<z.infer<typeof purchaseLimitSchema>>({
     resolver: zodResolver(purchaseLimitSchema),
+     // defaultValues will be set by useEffect below
   });
 
   useEffect(() => {
     if (user && account) {
         const currentUserDetails = mockUsers.find(u => u.id === user.id);
         usernameForm.reset({ newUsername: currentUserDetails?.username || "" });
-        // Ensure purchaseLimit is number or undefined, not null.
         const limit = account.purchaseLimitPerTransaction;
         purchaseLimitForm.reset({ limit: (limit === null || limit === undefined) ? undefined : Number(limit) });
     }
-  // usernameForm and purchaseLimitForm are stable, so they are fine in deps.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [account, user]);
+  }, [account, user, usernameForm, purchaseLimitForm]);
 
 
   const handleFormAction = useCallback(async (
     actionName: string, 
-    actionFn: () => Promise<{success: boolean, message: string}>, 
+    actionFn: () => Promise<{success: boolean, message: string, newDetails?: Account}>, 
     formToReset?: 'password' 
   ) => {
     setFormLoading(prev => ({ ...prev, [actionName]: true }));
     setFormResults(prev => ({...prev, [actionName]: null}));
     
     const result = await actionFn(); 
-
-    if (user) { // Re-fetch account details to reflect changes from the action
-        const updatedAccountData = getAccountByUserId(user.id);
-        setAccount(updatedAccountData ? { ...updatedAccountData } : null);
-    }
     
-    setFormResults(prev => ({...prev, [actionName]: result}));
-    setFormLoading(prev => ({ ...prev, [actionName]: false }));
-
     if (result.success) {
       toast({ title: "Success!", description: result.message });
+      if (user) { // Re-fetch account details to reflect changes from the action
+          const updatedAccountData = result.newDetails ? { ...result.newDetails } : getAccountByUserId(user.id);
+          if (updatedAccountData) setAccount({ ...updatedAccountData });
+      }
       if (formToReset === 'password') {
         passwordForm.reset({ newPassword: "", confirmNewPassword: "" });
       }
-      // Other forms are reset by the useEffect watching `account`
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
     }
+    setFormResults(prev => ({...prev, [actionName]: {success: result.success, message: result.message}}));
+    setFormLoading(prev => ({ ...prev, [actionName]: false }));
   }, [user, toast, passwordForm]);
 
 
@@ -153,26 +147,25 @@ export default function CardSettingsPage() {
     setIsLoadingRegenerate(true);
     setRegenerateResult(null);
     const result = await regenerateCardDetailsAction({ userId: user.id });
-    // After card regeneration, the account details in mock-data are updated.
-    // Fetch the fresh account details to update local state.
-    const updatedAccount = getAccountByUserId(user.id);
-    setAccount(updatedAccount ? { ...updatedAccount } : null);
     
+    if (result.success && result.newDetails) {
+        setAccount({ ...result.newDetails }); 
+        toast({ title: "Success!", description: result.message });
+    } else if (!result.success) {
+        toast({ title: "Error", description: result.message, variant: "destructive" });
+    }
     setRegenerateResult(result);
     setIsLoadingRegenerate(false);
-    if (result.success) toast({ title: "Success!", description: result.message });
-    else toast({ title: "Error", description: result.message, variant: "destructive" });
   };
 
   const onToggleFreeze = async (freeze: boolean) => {
     if (!user || !account) return;
 
     const originalIsFrozen = account.isFrozen;
-    // Optimistically update the local state
-    setAccount(prev => prev ? { ...prev, isFrozen: freeze } : null);
+    setAccount(prev => prev ? { ...prev, isFrozen: freeze } : null); // Optimistic update
     
     setIsLoadingFreeze(true);
-    setFreezeResult(null); // Clear previous result
+    setFreezeResult(null);
 
     const result = await toggleFreezeCardAction({ userId: user.id, freeze });
     
@@ -181,16 +174,10 @@ export default function CardSettingsPage() {
 
     if (result.success) {
       toast({ title: "Success!", description: result.message });
-      // The mock data was updated by the action. The local optimistic update stands.
-      // To ensure absolute consistency if other parts of app might have modified mockData,
-      // we can re-fetch, but it should ideally already reflect the change.
-      const currentServerState = getAccountByUserId(user.id);
-       if (currentServerState) setAccount({ ...currentServerState });
-
+      // The mock data was updated by the action. The optimistic update should stand.
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
-      // Revert optimistic update if action failed
-      setAccount(prev => prev ? { ...prev, isFrozen: originalIsFrozen } : null);
+      setAccount(prev => prev ? { ...prev, isFrozen: originalIsFrozen } : null); // Revert
     }
   };
 
@@ -198,11 +185,10 @@ export default function CardSettingsPage() {
     if (!user || !account) return;
 
     const originalIsBarcodeDisabled = account.isBarcodeDisabled;
-    // Optimistically update the local state
-    setAccount(prev => prev ? { ...prev, isBarcodeDisabled: disable } : null);
+    setAccount(prev => prev ? { ...prev, isBarcodeDisabled: disable } : null); // Optimistic update
 
     setIsLoadingBarcode(true);
-    setBarcodeResult(null); // Clear previous result
+    setBarcodeResult(null);
 
     const result = await toggleBarcodeDisabledAction({ userId: user.id, disable });
 
@@ -211,16 +197,12 @@ export default function CardSettingsPage() {
 
     if (result.success) {
       toast({ title: "Success!", description: result.message });
-      // Optimistic update stands. Re-fetch for absolute consistency.
-      const currentServerState = getAccountByUserId(user.id);
-      if (currentServerState) setAccount({ ...currentServerState });
+      // The mock data was updated by the action. The optimistic update should stand.
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
-      // Revert optimistic update if action failed
-      setAccount(prev => prev ? { ...prev, isBarcodeDisabled: originalIsBarcodeDisabled } : null);
+      setAccount(prev => prev ? { ...prev, isBarcodeDisabled: originalIsBarcodeDisabled } : null); // Revert
     }
   };
-
 
   if (!user || !account) {
     return (
@@ -301,7 +283,7 @@ export default function CardSettingsPage() {
             <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
-                        <Label className="font-medium">Issue New Card</Label>
+                        <Label className="font-medium">Issue New Card</Label> {/* Using generic Label */}
                         <p className="text-xs text-muted-foreground">
                             This will generate a new card number, CVV, expiry, and barcode. Your old card will be deactivated.
                         </p>
@@ -328,7 +310,7 @@ export default function CardSettingsPage() {
                 </div>
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
-                        <Label className="font-medium">Freeze Card Purchases</Label>
+                        <Label className="font-medium">Freeze Card Purchases</Label> {/* Using generic Label */}
                         <p className="text-xs text-muted-foreground">
                             Temporarily disable all purchases made with your card.
                         </p>
@@ -380,14 +362,14 @@ export default function CardSettingsPage() {
                 
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
-                        <Label className="font-medium">Barcode Payments</Label>
+                        <Label className="font-medium">Barcode Payments</Label> {/* Using generic Label */}
                         <p className="text-xs text-muted-foreground">
                             Enable or disable the ability to make payments using your 8-digit barcode.
                         </p>
                     </div>
                     <Switch 
-                        checked={!account.isBarcodeDisabled} // Switch is "checked" when payments are ENABLED
-                        onCheckedChange={(checked) => onToggleBarcodeDisabled(!checked)} // If checked (enabled), we want to set isBarcodeDisabled to FALSE
+                        checked={!account.isBarcodeDisabled} 
+                        onCheckedChange={(checked) => onToggleBarcodeDisabled(!checked)} 
                         disabled={isLoadingBarcode}
                         aria-label="Enable/Disable barcode payments"
                     />
@@ -401,3 +383,5 @@ export default function CardSettingsPage() {
   );
 }
     
+
+      
