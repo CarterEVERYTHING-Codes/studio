@@ -76,7 +76,7 @@ export default function AdminDashboardPage() {
           href="/admin/manage-funds"
           icon={<Landmark className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
-        {user?.id !== MAIN_ADMIN_USER_ID && ( 
+        {user?.id === MAIN_ADMIN_USER_ID && ( 
             <DashboardActionCard
             title="Add New Admin"
             description="Delegate administrative tasks by creating new admin accounts."
