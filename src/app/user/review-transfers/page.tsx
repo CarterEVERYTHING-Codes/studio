@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { approveTransferAction, rejectTransferAction } from "@/actions/userActions";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, BellRing, Check, X, Loader2, AlertCircle, Info, User } from "lucide-react";
+import { ArrowLeft, BellRing, Check, X, Loader2, AlertCircle, Info, User, History as HistoryIcon } from "lucide-react";
 import Link from "next/link";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -142,7 +142,7 @@ export default function ReviewTransfersPage() {
       </Card>
        <Card className="mt-8 shadow-lg">
         <CardHeader>
-            <CardTitle className="text-xl flex items-center gap-2"><History className="text-primary"/> Transfer History</CardTitle>
+            <CardTitle className="text-xl flex items-center gap-2"><HistoryIcon className="text-primary"/> Transfer History</CardTitle>
             <CardDescription>Overview of all transfers involving your account (sent or received, pending or resolved).</CardDescription>
         </CardHeader>
         <CardContent>
@@ -180,3 +180,4 @@ export default function ReviewTransfersPage() {
     </div>
   );
 }
+

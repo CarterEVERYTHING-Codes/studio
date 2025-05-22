@@ -11,7 +11,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { initiateTransferAction, type InitiateTransferFormValues } from "@/actions/userActions";
 import { useAuth } from "@/hooks/useAuth";
-import { useState, useEffect }_ // Removed unused React import
+import { useState, useEffect } from "react";
 import { ArrowLeft, Loader2, Send, User, DollarSign, CheckCircle, XCircle } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
