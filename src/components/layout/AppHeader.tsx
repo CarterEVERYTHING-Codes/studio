@@ -4,7 +4,7 @@
 import { LoadingLink } from "@/components/shared/LoadingLink";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { Home, LogOut, UserCircle, Briefcase, UserCog, PanelLeft, Sun, Moon, Laptop } from "lucide-react"; // Added Sun, Moon, Laptop
+import { Home, LogOut, UserCircle, Briefcase, UserCog, PanelLeft, Sun, Moon, Laptop, HelpCircle, Bug } from "lucide-react"; // Added HelpCircle, Bug
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,16 +12,17 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub, // Added for theme toggle
-  DropdownMenuSubContent, // Added for theme toggle
-  DropdownMenuSubTrigger, // Added for theme toggle
-  DropdownMenuPortal, // Added for theme toggle
+  DropdownMenuSub, 
+  DropdownMenuSubContent, 
+  DropdownMenuSubTrigger, 
+  DropdownMenuPortal, 
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { useNavigation } from "@/contexts/NavigationContext";
-import { useTheme } from "next-themes"; // Added import for theme
+import { useTheme } from "next-themes"; 
 import { useEffect, useState } from "react";
+import { useToast } from "@/hooks/use-toast"; // Added for tutorial button
 
 interface AppHeaderProps {
   onToggleSidebar?: () => void;
@@ -31,11 +32,12 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const { setIsNavigating } = useNavigation();
-  const { setTheme, resolvedTheme } = useTheme(); // Get theme functions and current theme
-  const [mounted, setMounted] = useState(false); // To prevent hydration mismatch with theme
+  const { setTheme, resolvedTheme } = useTheme(); 
+  const [mounted, setMounted] = useState(false); 
+  const { toast } = useToast(); // Added for tutorial button
 
   useEffect(() => {
-    setMounted(true); // Ensure component is mounted before using theme
+    setMounted(true); 
   }, []);
 
 
@@ -74,8 +76,15 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
     logout();
   };
 
-  if (!mounted) { // Avoid rendering theme toggle UI on server to prevent mismatch
-    return ( // Render a basic header structure or null until mounted
+  const handleTutorialClick = () => {
+    toast({
+      title: "Beginner Tutorial",
+      description: "Tutorial content would appear here (e.g., in a modal or new page).",
+    });
+  };
+
+  if (!mounted) { 
+    return ( 
         <header className="sticky top-0 z-40 w-full border-b bg-card shadow-sm">
          <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-4">
@@ -87,8 +96,8 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
                 <span>Campus CashFlow</span>
             </LoadingLink>
             </div>
-            <div className="flex items-center gap-4">
-                {/* Placeholder for user avatar until mounted */}
+            <div className="flex items-center gap-2">
+                {/* Placeholder for buttons and user avatar until mounted */}
             </div>
         </div>
         </header>
@@ -114,7 +123,21 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
           </LoadingLink>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-2">
+          {user && (
+            <>
+              <Button variant="ghost" size="sm" onClick={handleTutorialClick}>
+                <HelpCircle className="mr-1 h-4 w-4" />
+                Tutorial
+              </Button>
+              <Button variant="ghost" size="sm" asChild>
+                <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=BLz2Ec8cMUi0vqcgjsi4-GqIj1C-TohGgk1iAQp1X5BUNk1OREpZTVFFNFA4NklYWDVZSDI3VVo2Uy4u" target="_blank" rel="noopener noreferrer">
+                  <Bug className="mr-1 h-4 w-4" />
+                  Report Bug
+                </a>
+              </Button>
+            </>
+          )}
           {user && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -179,3 +202,4 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
     </header>
   );
 }
+
