@@ -23,7 +23,7 @@ type LoginFormInputs = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const { login, isLoading, error: authError } = useAuth();
-  const [showPassword, setShowPassword] = useState(false); // Kept if you want to add toggle later
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<LoginFormInputs>({
     resolver: zodResolver(loginSchema),

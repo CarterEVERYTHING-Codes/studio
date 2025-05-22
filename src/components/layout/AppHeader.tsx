@@ -12,15 +12,15 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  DropdownMenuSub, 
-  DropdownMenuSubContent, 
-  DropdownMenuSubTrigger, 
-  DropdownMenuPortal, 
+  DropdownMenuSub,
+  DropdownMenuSubContent,
+  DropdownMenuSubTrigger,
+  DropdownMenuPortal,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useRouter } from "next/navigation";
 import { useNavigation } from "@/contexts/NavigationContext";
-import { useTheme } from "next-themes"; 
+import { useTheme } from "next-themes";
 import { useEffect, useState } from "react";
 import { TutorialModal } from "./TutorialModal";
 import Image from "next/image";
@@ -33,12 +33,12 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const { user, logout } = useAuth();
   const router = useRouter();
   const { setIsNavigating } = useNavigation();
-  const { setTheme, resolvedTheme } = useTheme(); 
-  const [mounted, setMounted] = useState(false); 
+  const { setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [isTutorialOpen, setIsTutorialOpen] = useState(false);
 
   useEffect(() => {
-    setMounted(true); 
+    setMounted(true);
   }, []);
 
   const getRoleIcon = () => {
@@ -54,7 +54,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
         return <UserCircle className="h-5 w-5 text-primary-foreground" />;
     }
   };
-  
+
   const getDashboardPath = () => {
     if (!user) return "/";
     switch (user.role) {
@@ -67,7 +67,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
 
   const handleDashboardNavigation = () => {
     const path = getDashboardPath();
-    setIsNavigating(true); 
+    setIsNavigating(true);
     router.push(path);
   };
 
@@ -82,14 +82,14 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
 
   const canShowTutorial = user && (user.role === 'user' || user.role === 'business');
 
-  if (!mounted) { 
-    return ( 
+  if (!mounted) {
+    return (
         <header className="sticky top-0 z-40 w-full border-b bg-card shadow-sm">
          <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-4">
             <LoadingLink href={getDashboardPath()} className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-primary/80 transition-colors">
                 {/* Placeholder for logo until mounted to avoid hydration issues with Image */}
-                <div className="w-8 h-8 bg-muted rounded"></div> 
+                <div className="w-8 h-8 bg-muted rounded-md animate-pulse"></div>
                 <span>Campus CashFlow</span>
             </LoadingLink>
             </div>
