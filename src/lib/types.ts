@@ -38,3 +38,20 @@ export interface Transaction {
 export interface AuthenticatedUser extends User {
   // any additional properties for the authenticated user session
 }
+
+export type TransferStatus = "pending" | "approved" | "rejected" | "failed";
+
+export interface PendingTransfer {
+  id: string;
+  senderUserId: string;
+  senderAccountId: string;
+  senderName: string; // For display to recipient
+  recipientUserId: string;
+  recipientAccountId: string;
+  recipientUsername: string; // For lookup during initiation
+  amount: number;
+  status: TransferStatus;
+  initiatedDate: string; // ISO string
+  resolvedDate?: string; // ISO string, when approved/rejected
+  notes?: string; // Optional notes from sender or system
+}

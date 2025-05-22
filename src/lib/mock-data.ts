@@ -1,5 +1,5 @@
 
-import type { User, Account, Transaction, UserRole } from "@/lib/types";
+import type { User, Account, Transaction, UserRole, PendingTransfer } from "@/lib/types";
 
 export const MAIN_ADMIN_USER_ID = "mainAdminUser";
 export const MAIN_ADMIN_ACCOUNT_ID = "mainAdminAccount";
@@ -62,7 +62,6 @@ const generateTransactions = (accountId: string, count: number): Transaction[] =
       description: type === "purchase" ? `Purchase at Vendor ${String.fromCharCode(65 + i)}` : "Pocket Money Deposit",
       amount: type === "purchase" ? -amount : amount, // Signed amount
       type: type,
-      // For these generic transactions, from/to might be less specific
       fromAccountId: type === "purchase" ? accountId : `source-external-${i}`,
       toAccountId: type === "purchase" ? `vendor-external-${i}` : accountId,
     });
@@ -77,11 +76,11 @@ export const mockAccounts: Account[] = [
     userId: MAIN_ADMIN_USER_ID,
     accountHolderName: "Main Admin Special Account",
     email: "mainadmin@campusflow.com",
-    cardNumber: "4************0000", // Placeholder
-    cvv: "000", // Placeholder
-    expiryDate: "01/99", // Placeholder
-    barcode: "00000000", // Placeholder
-    balance: 0, // Starts with 0, accumulates fees
+    cardNumber: "4************0000", 
+    cvv: "000", 
+    expiryDate: "01/99", 
+    barcode: "00000000", 
+    balance: 0, 
     transactions: [],
   },
   {
@@ -89,11 +88,11 @@ export const mockAccounts: Account[] = [
     userId: CAMPUS_STORE_BUSINESS_USER_ID,
     accountHolderName: "Campus Store Account",
     email: "store@example.com",
-    cardNumber: "5************5555", // Placeholder for business card if needed
-    cvv: "555", // Placeholder
-    expiryDate: "01/99", // Placeholder
-    barcode: "55555555", // Placeholder for business barcode if needed
-    balance: 1000, // Initial float for the business
+    cardNumber: "5************5555", 
+    cvv: "555", 
+    expiryDate: "01/99", 
+    barcode: "55555555", 
+    balance: 1000, 
     transactions: [],
   },
   {
@@ -125,6 +124,23 @@ export const mockAccounts: Account[] = [
 
 export let allTransactions: Transaction[] = mockAccounts.reduce((acc, curr) => acc.concat(curr.transactions), [] as Transaction[]);
 
+export const mockPendingTransfers: PendingTransfer[] = [
+    // Example of a pending transfer for testing
+    // {
+    //   id: 'ptxn-example-1',
+    //   senderUserId: 'user2', // Bob
+    //   senderAccountId: 'user2-acc',
+    //   senderName: 'Bob The Builder',
+    //   recipientUserId: 'user1', // Alice
+    //   recipientAccountId: 'user1-acc',
+    //   recipientUsername: 'student1',
+    //   amount: 20.00,
+    //   status: 'pending',
+    //   initiatedDate: new Date(Date.now() - 3600000).toISOString(), // 1 hour ago
+    //   notes: 'For lunch yesterday'
+    // }
+];
+
 export const addMockAccount = (account: Account): void => {
   mockAccounts.push(account);
   if (account.transactions && account.transactions.length > 0) {
@@ -133,38 +149,25 @@ export const addMockAccount = (account: Account): void => {
   }
 };
 
-// This function now correctly handles updating balances for from/to accounts
-// based on the signed transaction.amount.
-// transaction.amount is the change for fromAccountId.
-// toAccountId receives -transaction.amount.
 export const addMockTransaction = (transaction: Transaction): void => {
-  allTransactions.unshift(transaction); // Add to global list
+  allTransactions.unshift(transaction); 
 
-  // Update From Account
   if (transaction.fromAccountId) {
     const fromAccount = mockAccounts.find(acc => acc.id === transaction.fromAccountId);
     if (fromAccount) {
-      fromAccount.balance += transaction.amount; // transaction.amount is already signed for the 'from' side
+      fromAccount.balance += transaction.amount; 
       fromAccount.transactions.unshift(transaction);
       fromAccount.transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
     }
   }
 
-  // Update To Account
   if (transaction.toAccountId) {
     const toAccount = mockAccounts.find(acc => acc.id === transaction.toAccountId);
     if (toAccount) {
-      // If it's a transfer to another tracked account, their balance increases by the positive value
-      // (or decreases if the original transaction.amount was positive, which means a debit from 'toAccount')
-      toAccount.balance -= transaction.amount; // if amount is -50 for fromAcc, toAcc gets -(-50) = +50
+      toAccount.balance -= transaction.amount; 
       
-      // Create a corresponding transaction for the 'to' account if it's a different party for their records
-      // However, for simplicity, we often show the same transaction from multiple perspectives.
-      // Let's ensure the transaction is in the toAccount's list as well.
       if (!toAccount.transactions.find(t => t.id === transaction.id && t.fromAccountId === transaction.fromAccountId && t.toAccountId === transaction.toAccountId)) {
-         // We might want a slightly different transaction object for the receiver's perspective
-         // For now, let's add the same one, implies shared visibility or a simplified model.
-         toAccount.transactions.unshift({...transaction}); // Add a copy
+         toAccount.transactions.unshift({...transaction}); 
          toAccount.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
       }
     }
