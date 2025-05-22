@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { UserCog, ListChecks, Users, CreditCard, Landmark, FileSearch } from "lucide-react";
-import { mockAccounts, MAIN_ADMIN_ACCOUNT_ID } from "@/lib/mock-data";
+import { mockAccounts, MAIN_ADMIN_ACCOUNT_ID, MAIN_ADMIN_USER_ID } from "@/lib/mock-data"; // Added MAIN_ADMIN_USER_ID
 import { useEffect, useState } from "react";
 import type { Account } from "@/lib/types";
 
@@ -15,7 +15,9 @@ export default function AdminDashboardPage() {
   const [mainAdminAccountBalance, setMainAdminAccountBalance] = useState<number | null>(null);
 
   useEffect(() => {
-    if (user && user.id === MAIN_ADMIN_ACCOUNT_ID.replace('Account','User')) { // Check if current admin is the Main Admin
+    // Check if current admin is the Main Admin. 
+    // The user.id from useAuth() refers to the User ID, not the Account ID.
+    if (user && user.id === MAIN_ADMIN_USER_ID) { 
         const acc = mockAccounts.find(a => a.id === MAIN_ADMIN_ACCOUNT_ID);
         if (acc) {
             setMainAdminAccountBalance(acc.balance);
