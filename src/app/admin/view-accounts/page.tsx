@@ -1,15 +1,16 @@
 
-"use client"; // This page is moved from business to admin
+"use client"; 
 
 import { useState, useEffect } from "react";
 import type { Account, User } from "@/lib/types";
-import { mockAccounts, mockUsers } from "@/lib/mock-data";
+import { mockAccounts, mockUsers, MAIN_ADMIN_USER_ID } from "@/lib/mock-data"; // Added MAIN_ADMIN_USER_ID
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { ArrowLeft, Users as UsersIcon, CreditCard, Mail, Phone, Shield, Briefcase } from "lucide-react";
+import { ArrowLeft, Users as UsersIcon, CreditCard, Mail, Phone, Shield, Briefcase, Lock, CalendarDays, QrCode } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { useAuth } from "@/hooks/useAuth"; // Import useAuth
 
 interface DisplayAccount extends Account {
   userRole?: User['role'];
@@ -17,14 +18,16 @@ interface DisplayAccount extends Account {
 }
 
 export default function AdminViewAccountsPage() {
+  const { user } = useAuth(); // Get current authenticated user
   const [searchTerm, setSearchTerm] = useState("");
   const [displayedAccounts, setDisplayedAccounts] = useState<DisplayAccount[]>([]);
+  
+  const isMainAdmin = user?.id === MAIN_ADMIN_USER_ID;
 
   useEffect(() => {
-    // Admins can see all accounts
     const allSystemAccounts = mockAccounts.map(acc => {
-      const user = mockUsers.find(u => u.id === acc.userId);
-      return { ...acc, userRole: user?.role, username: user?.username };
+      const linkedUser = mockUsers.find(u => u.id === acc.userId);
+      return { ...acc, userRole: linkedUser?.role, username: linkedUser?.username };
     });
 
     const filtered = allSystemAccounts.filter(
@@ -33,10 +36,16 @@ export default function AdminViewAccountsPage() {
         acc.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
         acc.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
         (acc.username && acc.username.toLowerCase().includes(searchTerm.toLowerCase())) ||
-        (acc.userRole && acc.userRole.toLowerCase().includes(searchTerm.toLowerCase()))
+        (acc.userRole && acc.userRole.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (isMainAdmin && ( // Allow main admin to search by full card details if they are visible
+            acc.cardNumber.includes(searchTerm) ||
+            acc.cvv.includes(searchTerm) ||
+            acc.expiryDate.includes(searchTerm) ||
+            acc.barcode.includes(searchTerm)
+        ))
     );
     setDisplayedAccounts(filtered);
-  }, [searchTerm]);
+  }, [searchTerm, isMainAdmin]); // Add isMainAdmin to dependency array
 
   const getRoleIcon = (role?: User['role']) => {
     if (role === 'admin') return <Shield className="h-4 w-4 text-red-500" />;
@@ -56,13 +65,14 @@ export default function AdminViewAccountsPage() {
           <CardTitle className="text-2xl flex items-center gap-2"><UsersIcon className="text-primary"/> All System Accounts</CardTitle>
           <CardDescription>
             View and search all accounts (User, Business, Admin) in the system.
+            {isMainAdmin && " Full card details are visible to Main Admin."}
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="mb-4">
             <Input
               type="text"
-              placeholder="Search by name, email, ID, username, role..."
+              placeholder="Search by name, email, ID, username, role, card details (Main Admin)..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="max-w-md"
@@ -79,7 +89,14 @@ export default function AdminViewAccountsPage() {
                     <TableHead>Email</TableHead>
                     <TableHead>Phone</TableHead>
                     <TableHead>Account ID</TableHead>
-                    <TableHead>Card (Last 4)</TableHead>
+                    <TableHead>Card Number</TableHead>
+                    {isMainAdmin && (
+                      <>
+                        <TableHead>CVV</TableHead>
+                        <TableHead>Expiry</TableHead>
+                        <TableHead>Barcode</TableHead>
+                      </>
+                    )}
                     <TableHead className="text-right">Balance</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -111,10 +128,30 @@ export default function AdminViewAccountsPage() {
                         </TableCell>
                       <TableCell className="font-mono text-xs">{acc.id}</TableCell>
                       <TableCell>
-                        <div className="flex items-center gap-1">
-                           <CreditCard className="h-3 w-3 text-muted-foreground"/> {acc.cardNumber.slice(-4)}
+                        <div className="flex items-center gap-1 font-mono text-xs">
+                           <CreditCard className="h-3 w-3 text-muted-foreground"/> 
+                           {isMainAdmin ? acc.cardNumber : `**** **** **** ${acc.cardNumber.slice(-4)}`}
                         </div>
                       </TableCell>
+                      {isMainAdmin && (
+                        <>
+                          <TableCell>
+                            <div className="flex items-center gap-1 font-mono text-xs">
+                              <Lock className="h-3 w-3 text-muted-foreground"/> {acc.cvv}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 font-mono text-xs">
+                              <CalendarDays className="h-3 w-3 text-muted-foreground"/> {acc.expiryDate}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 font-mono text-xs">
+                              <QrCode className="h-3 w-3 text-muted-foreground"/> {acc.barcode}
+                            </div>
+                          </TableCell>
+                        </>
+                      )}
                       <TableCell className="text-right font-semibold">${acc.balance.toFixed(2)}</TableCell>
                     </TableRow>
                   ))}

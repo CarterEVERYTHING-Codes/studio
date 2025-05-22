@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { UserCog, ListChecks, Users, CreditCard, Landmark, FileSearch } from "lucide-react";
-import { mockAccounts, MAIN_ADMIN_ACCOUNT_ID, MAIN_ADMIN_USER_ID } from "@/lib/mock-data"; // Added MAIN_ADMIN_USER_ID
+import { mockAccounts, MAIN_ADMIN_ACCOUNT_ID, MAIN_ADMIN_USER_ID } from "@/lib/mock-data";
 import { useEffect, useState } from "react";
 import type { Account } from "@/lib/types";
 
@@ -15,15 +15,13 @@ export default function AdminDashboardPage() {
   const [mainAdminAccountBalance, setMainAdminAccountBalance] = useState<number | null>(null);
 
   useEffect(() => {
-    // Check if current admin is the Main Admin. 
-    // The user.id from useAuth() refers to the User ID, not the Account ID.
     if (user && user.id === MAIN_ADMIN_USER_ID) { 
         const acc = mockAccounts.find(a => a.id === MAIN_ADMIN_ACCOUNT_ID);
         if (acc) {
             setMainAdminAccountBalance(acc.balance);
         }
     }
-  }, [user]);
+  }, [user, mockAccounts]); // Added mockAccounts to dependency array as balances can change
 
 
   return (
@@ -38,13 +36,13 @@ export default function AdminDashboardPage() {
         </CardHeader>
         {user?.id === MAIN_ADMIN_USER_ID && mainAdminAccountBalance !== null && (
              <CardContent>
-                <Card className="bg-green-50 border-green-200">
+                <Card className="bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-700">
                     <CardHeader>
-                        <CardTitle className="text-lg text-green-700">Main Admin Account (Fee Collection)</CardTitle>
-                        <CardDescription className="text-green-600">This account receives all service fees.</CardDescription>
+                        <CardTitle className="text-lg text-green-700 dark:text-green-300">Main Admin Account (Fee Collection)</CardTitle>
+                        <CardDescription className="text-green-600 dark:text-green-400">This account receives all service fees.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <p className="text-2xl font-bold text-green-800">Balance: ${mainAdminAccountBalance.toFixed(2)}</p>
+                        <p className="text-2xl font-bold text-green-800 dark:text-green-200">Balance: ${mainAdminAccountBalance.toFixed(2)}</p>
                         <p className="text-xs text-muted-foreground mt-1">View detailed transactions in "All System Transactions".</p>
                     </CardContent>
                 </Card>
@@ -66,8 +64,8 @@ export default function AdminDashboardPage() {
           icon={<ListChecks className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
          <DashboardActionCard
-          title="View User Accounts"
-          description="Browse and manage user account information."
+          title="View System Accounts"
+          description="Browse and manage all user, business, and admin accounts."
           href="/admin/view-accounts" 
           icon={<FileSearch className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
@@ -77,7 +75,7 @@ export default function AdminDashboardPage() {
           href="/admin/manage-funds"
           icon={<Landmark className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
-        {user?.id !== MAIN_ADMIN_USER_ID && ( // Only show 'Add New Admin' if not the Main Admin to avoid clutter/self-management
+        {user?.id !== MAIN_ADMIN_USER_ID && ( // Only show 'Add New Admin' if not the Main Admin 
             <DashboardActionCard
             title="Add New Admin"
             description="Delegate administrative tasks by creating new admin accounts."
@@ -119,3 +117,4 @@ function DashboardActionCard({ title, description, href, icon }: DashboardAction
     </Link>
   );
 }
+
