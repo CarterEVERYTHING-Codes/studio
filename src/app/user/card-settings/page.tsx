@@ -93,9 +93,11 @@ export default function CardSettingsPage() {
     if (user && account) {
         const currentUserDetails = mockUsers.find(u => u.id === user.id);
         usernameForm.reset({ newUsername: currentUserDetails?.username || "" });
-        purchaseLimitForm.reset({ limit: account.purchaseLimitPerTransaction === null || account.purchaseLimitPerTransaction === undefined ? undefined : account.purchaseLimitPerTransaction });
+        // Ensure purchaseLimit is number or undefined, not null.
+        const limit = account.purchaseLimitPerTransaction;
+        purchaseLimitForm.reset({ limit: (limit === null || limit === undefined) ? undefined : Number(limit) });
     }
-  // usernameForm and purchaseLimitForm are stable references from useForm, so they are fine in deps.
+  // usernameForm and purchaseLimitForm are stable, so they are fine in deps.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [account, user]);
 
@@ -110,7 +112,7 @@ export default function CardSettingsPage() {
     
     const result = await actionFn(); 
 
-    if (user) { // Re-fetch account details to reflect changes
+    if (user) { // Re-fetch account details to reflect changes from the action
         const updatedAccountData = getAccountByUserId(user.id);
         setAccount(updatedAccountData ? { ...updatedAccountData } : null);
     }
@@ -123,6 +125,7 @@ export default function CardSettingsPage() {
       if (formToReset === 'password') {
         passwordForm.reset({ newPassword: "", confirmNewPassword: "" });
       }
+      // Other forms are reset by the useEffect watching `account`
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
     }
@@ -150,8 +153,11 @@ export default function CardSettingsPage() {
     setIsLoadingRegenerate(true);
     setRegenerateResult(null);
     const result = await regenerateCardDetailsAction({ userId: user.id });
+    // After card regeneration, the account details in mock-data are updated.
+    // Fetch the fresh account details to update local state.
     const updatedAccount = getAccountByUserId(user.id);
     setAccount(updatedAccount ? { ...updatedAccount } : null);
+    
     setRegenerateResult(result);
     setIsLoadingRegenerate(false);
     if (result.success) toast({ title: "Success!", description: result.message });
@@ -161,50 +167,57 @@ export default function CardSettingsPage() {
   const onToggleFreeze = async (freeze: boolean) => {
     if (!user || !account) return;
 
-    const originalFreezeState = account.isFrozen;
-    // Optimistic UI update
+    const originalIsFrozen = account.isFrozen;
+    // Optimistically update the local state
     setAccount(prev => prev ? { ...prev, isFrozen: freeze } : null);
+    
     setIsLoadingFreeze(true);
-    setFreezeResult(null);
+    setFreezeResult(null); // Clear previous result
 
     const result = await toggleFreezeCardAction({ userId: user.id, freeze });
+    
     setIsLoadingFreeze(false);
     setFreezeResult(result);
 
     if (result.success) {
       toast({ title: "Success!", description: result.message });
-      // Data is already updated in mock-data, ensure local state is consistent
-      const finalAccountState = getAccountByUserId(user.id);
-      setAccount(finalAccountState ? { ...finalAccountState } : null);
+      // The mock data was updated by the action. The local optimistic update stands.
+      // To ensure absolute consistency if other parts of app might have modified mockData,
+      // we can re-fetch, but it should ideally already reflect the change.
+      const currentServerState = getAccountByUserId(user.id);
+       if (currentServerState) setAccount({ ...currentServerState });
+
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
-      // Revert optimistic update on failure
-      setAccount(prev => prev ? { ...prev, isFrozen: originalFreezeState } : null);
+      // Revert optimistic update if action failed
+      setAccount(prev => prev ? { ...prev, isFrozen: originalIsFrozen } : null);
     }
   };
 
   const onToggleBarcodeDisabled = async (disable: boolean) => {
     if (!user || !account) return;
 
-    const originalBarcodeDisabledState = account.isBarcodeDisabled;
-    // Optimistic UI update
+    const originalIsBarcodeDisabled = account.isBarcodeDisabled;
+    // Optimistically update the local state
     setAccount(prev => prev ? { ...prev, isBarcodeDisabled: disable } : null);
+
     setIsLoadingBarcode(true);
-    setBarcodeResult(null);
+    setBarcodeResult(null); // Clear previous result
 
     const result = await toggleBarcodeDisabledAction({ userId: user.id, disable });
+
     setIsLoadingBarcode(false);
     setBarcodeResult(result);
 
     if (result.success) {
       toast({ title: "Success!", description: result.message });
-      // Data is already updated in mock-data, ensure local state is consistent
-      const finalAccountState = getAccountByUserId(user.id);
-      setAccount(finalAccountState ? { ...finalAccountState } : null);
+      // Optimistic update stands. Re-fetch for absolute consistency.
+      const currentServerState = getAccountByUserId(user.id);
+      if (currentServerState) setAccount({ ...currentServerState });
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
-      // Revert optimistic update on failure
-      setAccount(prev => prev ? { ...prev, isBarcodeDisabled: originalBarcodeDisabledState } : null);
+      // Revert optimistic update if action failed
+      setAccount(prev => prev ? { ...prev, isBarcodeDisabled: originalIsBarcodeDisabled } : null);
     }
   };
 
