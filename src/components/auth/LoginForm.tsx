@@ -12,7 +12,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import Image from "next/image"; // Import next/image
+import Image from "next/image";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -23,7 +23,7 @@ type LoginFormInputs = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const { login, isLoading, error: authError } = useAuth();
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // Kept if you want to add toggle later
 
   const form = useForm<LoginFormInputs>({
     resolver: zodResolver(loginSchema),
@@ -78,7 +78,6 @@ export function LoginForm() {
                   <FormControl>
                     <Input type={showPassword ? "text" : "password"} placeholder="Enter your password" {...field} />
                   </FormControl>
-                  {/* TODO: Add a button to toggle showPassword if desired */}
                   <FormMessage />
                 </FormItem>
               )}

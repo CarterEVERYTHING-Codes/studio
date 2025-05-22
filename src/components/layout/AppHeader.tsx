@@ -23,7 +23,7 @@ import { useNavigation } from "@/contexts/NavigationContext";
 import { useTheme } from "next-themes"; 
 import { useEffect, useState } from "react";
 import { TutorialModal } from "./TutorialModal";
-import Image from "next/image"; // Import next/image
+import Image from "next/image";
 
 interface AppHeaderProps {
   onToggleSidebar?: () => void;
@@ -89,7 +89,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
             <div className="flex items-center gap-4">
             <LoadingLink href={getDashboardPath()} className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-primary/80 transition-colors">
                 {/* Placeholder for logo until mounted to avoid hydration issues with Image */}
-                <div className="w-8 h-8"></div> 
+                <div className="w-8 h-8 bg-muted rounded"></div> 
                 <span>Campus CashFlow</span>
             </LoadingLink>
             </div>
