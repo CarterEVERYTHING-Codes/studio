@@ -8,7 +8,7 @@ import {
     getAccountByBarcode, 
     mockAccounts, 
     MAIN_ADMIN_ACCOUNT_ID,
-    allTransactions, // Added import
+    allTransactions, 
     mockUsers
 } from "@/lib/mock-data";
 import type { Transaction, Account } from "@/lib/types";
@@ -44,10 +44,15 @@ export async function makeCardPaymentAction(values: z.infer<typeof cardPaymentSc
   const { cardNumber, expiryDate, cvv, amount: purchaseAmount, businessUserId } = validation.data;
   
   const customerAccount = getAccountByCardNumber(cardNumber);
-  const businessAccount = mockAccounts.find(acc => acc.userId === businessUserId); // The business's own account
+  const businessAccount = mockAccounts.find(acc => acc.userId === businessUserId); 
   const mainAdminAccount = mockAccounts.find(acc => acc.id === MAIN_ADMIN_ACCOUNT_ID);
 
   if (!customerAccount) return { success: false, message: "Customer card not found." };
+  if (customerAccount.isFrozen) return { success: false, message: "Customer account is frozen. Payment denied." };
+  if (customerAccount.purchaseLimitPerTransaction && purchaseAmount > customerAccount.purchaseLimitPerTransaction) {
+    return { success: false, message: `Purchase amount ($${purchaseAmount.toFixed(2)}) exceeds customer's per-transaction limit of $${customerAccount.purchaseLimitPerTransaction.toFixed(2)}.` };
+  }
+
   if (!businessAccount) return { success: false, message: "Business account not found." };
   if (!mainAdminAccount) return { success: false, message: "Main admin account not found. Cannot process fee." };
 
@@ -66,12 +71,10 @@ export async function makeCardPaymentAction(values: z.infer<typeof cardPaymentSc
   const businessName = businessUser?.name || "Campus Business";
   const customerName = customerAccount.accountHolderName;
 
-  // Explicit balance updates
   customerAccount.balance -= totalChargeToCustomer;
   businessAccount.balance += purchaseAmount;
   mainAdminAccount.balance += serviceFee;
 
-  // Record transactions for each party's ledger
   const tIdBase = Date.now();
 
   const customerLedgerTx: Transaction = {
@@ -80,8 +83,8 @@ export async function makeCardPaymentAction(values: z.infer<typeof cardPaymentSc
     description: `Payment to ${businessName} ($${purchaseAmount.toFixed(2)}) + Fee ($${serviceFee.toFixed(2)})`,
     amount: -totalChargeToCustomer,
     type: "purchase",
-    fromAccountId: customerAccount.id, // Self
-    toAccountId: businessAccount.id, // Target of funds before fee split
+    fromAccountId: customerAccount.id, 
+    toAccountId: businessAccount.id, 
   };
   customerAccount.transactions.unshift(customerLedgerTx);
   allTransactions.unshift(customerLedgerTx);
@@ -91,10 +94,10 @@ export async function makeCardPaymentAction(values: z.infer<typeof cardPaymentSc
     id: `txn-b-${tIdBase}`,
     date: new Date().toISOString(),
     description: `Sale to ${customerName} ($${purchaseAmount.toFixed(2)})`,
-    amount: purchaseAmount, // Positive for business
-    type: "deposit", // Represents income
+    amount: purchaseAmount, 
+    type: "deposit", 
     fromAccountId: customerAccount.id,
-    toAccountId: businessAccount.id, // Self
+    toAccountId: businessAccount.id, 
   };
   businessAccount.transactions.unshift(businessLedgerTx);
   allTransactions.unshift(businessLedgerTx);
@@ -104,15 +107,14 @@ export async function makeCardPaymentAction(values: z.infer<typeof cardPaymentSc
     id: `txn-a-${tIdBase}`,
     date: new Date().toISOString(),
     description: `Service Fee from ${customerName} (Purchase at ${businessName})`,
-    amount: serviceFee, // Positive for admin
-    type: "deposit", // Represents income
-    fromAccountId: customerAccount.id, // Source of fee
-    toAccountId: mainAdminAccount.id, // Self
+    amount: serviceFee, 
+    type: "deposit", 
+    fromAccountId: customerAccount.id, 
+    toAccountId: mainAdminAccount.id, 
   };
   mainAdminAccount.transactions.unshift(adminFeeLedgerTx);
   allTransactions.unshift(adminFeeLedgerTx);
 
-  // Sort all transactions by date again
   allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   customerAccount.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   businessAccount.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -135,6 +137,12 @@ export async function makeBarcodePaymentAction(values: z.infer<typeof barcodePay
   const mainAdminAccount = mockAccounts.find(acc => acc.id === MAIN_ADMIN_ACCOUNT_ID);
   
   if (!customerAccount) return { success: false, message: "Customer barcode not found." };
+  if (customerAccount.isFrozen) return { success: false, message: "Customer account is frozen. Payment denied." };
+  if (customerAccount.isBarcodeDisabled) return { success: false, message: "Barcode payments are disabled for this customer account."};
+  if (customerAccount.purchaseLimitPerTransaction && purchaseAmount > customerAccount.purchaseLimitPerTransaction) {
+    return { success: false, message: `Purchase amount ($${purchaseAmount.toFixed(2)}) exceeds customer's per-transaction limit of $${customerAccount.purchaseLimitPerTransaction.toFixed(2)}.` };
+  }
+
   if (!businessAccount) return { success: false, message: "Business account not found." };
   if (!mainAdminAccount) return { success: false, message: "Main admin account not found. Cannot process fee." };
 
@@ -153,14 +161,12 @@ export async function makeBarcodePaymentAction(values: z.infer<typeof barcodePay
   const businessName = businessUser?.name || "Campus Business";
   const customerName = customerAccount.accountHolderName;
 
-  // Explicit balance updates
   customerAccount.balance -= totalChargeToCustomer;
   businessAccount.balance += purchaseAmount;
   mainAdminAccount.balance += serviceFee;
 
   const tIdBase = Date.now();
 
-  // Record transactions for each party's ledger
   const customerLedgerTx: Transaction = {
     id: `txn-c-${tIdBase}`,
     date: new Date().toISOString(),
@@ -197,7 +203,6 @@ export async function makeBarcodePaymentAction(values: z.infer<typeof barcodePay
   mainAdminAccount.transactions.unshift(adminFeeLedgerTx);
   allTransactions.unshift(adminFeeLedgerTx);
 
-  // Sort all transactions by date again
   allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   customerAccount.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   businessAccount.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -207,15 +212,13 @@ export async function makeBarcodePaymentAction(values: z.infer<typeof barcodePay
 }
 
 
-// This action is now for ADMIN use
 const fundManagementSchema = z.object({
     targetAccountId: z.string().min(1, "Target account ID is required."),
     amount: z.number().positive("Amount must be positive."),
     operation: z.enum(["deposit", "withdraw"]),
-    adminUserId: z.string() // ID of admin performing the action
+    adminUserId: z.string() 
 });
 
-// This action is now intended for Admins
 export async function manageFundsAction(values: z.infer<typeof fundManagementSchema>): Promise<{ success: boolean; message: string; transaction?: Transaction }> {
     const validation = fundManagementSchema.safeParse(values);
     if(!validation.success) {
@@ -229,10 +232,8 @@ export async function manageFundsAction(values: z.infer<typeof fundManagementSch
         return { success: false, message: "Target account not found." };
     }
     
-    // Ensure the target is a user account for typical operations
     const targetUser = mockUsers.find(u => u.id === targetAccount.userId);
     if (!targetUser || targetUser.role !== 'user') {
-        // For now, let's allow admin to manage any account, but this could be restricted.
         // console.warn(`Admin ${adminUserId} is managing a non-user account: ${targetAccountId}`);
     }
 
@@ -241,30 +242,52 @@ export async function manageFundsAction(values: z.infer<typeof fundManagementSch
         return { success: false, message: "Insufficient funds in target account for withdrawal." };
     }
 
-    const transactionAmount = operation === "deposit" ? amount : -amount; // amount is positive if deposit *to* target, negative if withdraw *from* target
+    const transactionAmount = operation === "deposit" ? amount : -amount; 
     
     const description = operation === "deposit" 
         ? `Admin Deposit by ${adminUserId.slice(0,8)}...`
         : `Admin Withdrawal by ${adminUserId.slice(0,8)}...`;
 
-    const newTransaction: Transaction = {
-        id: `txn-admin-${Date.now()}`,
+    const mainAdminAcc = mockAccounts.find(acc => acc.id === MAIN_ADMIN_ACCOUNT_ID);
+    if(!mainAdminAcc) return {success: false, message: "Main admin account for fund source/destination not found."};
+
+    const newTransactionForTarget: Transaction = {
+        id: `txn-admin-target-${Date.now()}`,
         date: new Date().toISOString(),
         description,
-        amount: transactionAmount, // This is the amount that will affect the targetAccount's balance
+        amount: transactionAmount, 
         type: operation,
-        // For admin operations, from/to depends on perspective.
-        // If depositing TO target, amount is positive for target. from could be 'admin system' or main admin account.
-        // If withdrawing FROM target, amount is negative for target. to could be 'admin system' or main admin.
-        // Let's make amount signed from the perspective of the target account.
-        fromAccountId: operation === "withdraw" ? targetAccountId : MAIN_ADMIN_ACCOUNT_ID, // Money comes from target or from admin
-        toAccountId: operation === "deposit" ? targetAccountId : MAIN_ADMIN_ACCOUNT_ID,   // Money goes to target or to admin
+        fromAccountId: operation === "withdraw" ? targetAccountId : MAIN_ADMIN_ACCOUNT_ID,
+        toAccountId: operation === "deposit" ? targetAccountId : MAIN_ADMIN_ACCOUNT_ID,  
     };
     
-    // addMockTransaction will update targetAccount.balance by newTransaction.amount
-    // and MAIN_ADMIN_ACCOUNT_ID balance by -newTransaction.amount
-    addMockTransaction(newTransaction); 
+    targetAccount.balance += transactionAmount;
+    targetAccount.transactions.unshift(newTransactionForTarget);
+    targetAccount.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    allTransactions.unshift(newTransactionForTarget);
 
-    return { success: true, message: `${operation.charAt(0).toUpperCase() + operation.slice(1)} successful!`, transaction: newTransaction };
+
+    // If depositing to target, admin account is debited. If withdrawing from target, admin account is credited.
+    const adminTransactionAmount = -transactionAmount;
+    const adminTransactionDescription = operation === "deposit" 
+        ? `Funds transferred to ${targetAccount.accountHolderName}`
+        : `Funds received from ${targetAccount.accountHolderName}`;
+    
+    const newTransactionForAdmin: Transaction = {
+        id: `txn-admin-source-${Date.now()}`,
+        date: new Date().toISOString(),
+        description: adminTransactionDescription,
+        amount: adminTransactionAmount,
+        type: operation === "deposit" ? "withdrawal" : "deposit", // Opposite for admin account
+        fromAccountId: operation === "deposit" ? MAIN_ADMIN_ACCOUNT_ID : targetAccountId,
+        toAccountId: operation === "withdraw" ? MAIN_ADMIN_ACCOUNT_ID : targetAccountId,
+    };
+    mainAdminAcc.balance += adminTransactionAmount;
+    mainAdminAcc.transactions.unshift(newTransactionForAdmin);
+    mainAdminAcc.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    allTransactions.unshift(newTransactionForAdmin);
+
+    allTransactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    return { success: true, message: `${operation.charAt(0).toUpperCase() + operation.slice(1)} of $${amount.toFixed(2)} successful!`, transaction: newTransactionForTarget };
 }
-

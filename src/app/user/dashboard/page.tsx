@@ -1,11 +1,11 @@
 
 "use client";
-import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
+import { LoadingLink } from "@/components/shared/LoadingLink"; 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { mockAccounts } from "@/lib/mock-data"; // Simulating data fetch
-import { CreditCard, History, Wallet, UserCircle, Send, BellRing, HandCoins } from "lucide-react";
+import { mockAccounts } from "@/lib/mock-data"; 
+import { CreditCard, History, Wallet, UserCircle, Send, BellRing, HandCoins, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Account } from "@/lib/types";
 
@@ -16,7 +16,6 @@ export default function UserDashboardPage() {
 
   useEffect(() => {
     if (user) {
-      // Simulate fetching account data
       const userAccount = mockAccounts.find(acc => acc.userId === user.id);
       if (userAccount) {
         setAccount(userAccount);
@@ -90,6 +89,12 @@ export default function UserDashboardPage() {
           href="/user/review-transfers"
           icon={<BellRing className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
+        <DashboardActionCard
+          title="Card Settings"
+          description="Manage your card preferences, security, and limits."
+          href="/user/card-settings"
+          icon={<Settings className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
+        />
       </div>
     </div>
   );
@@ -104,7 +109,7 @@ interface DashboardActionCardProps {
 
 function DashboardActionCard({ title, description, href, icon }: DashboardActionCardProps) {
   return (
-    <LoadingLink href={href} passHref className="h-full"> {/* Changed Link to LoadingLink */}
+    <LoadingLink href={href} passHref className="h-full"> 
       <Card className="hover:shadow-xl transition-shadow duration-300 group cursor-pointer h-full flex flex-col">
         <CardHeader className="flex-shrink-0">
           <div className="flex items-center justify-center mb-4 bg-primary/10 rounded-full p-4 w-20 h-20 mx-auto">
@@ -116,7 +121,7 @@ function DashboardActionCard({ title, description, href, icon }: DashboardAction
           <p className="text-sm text-muted-foreground text-center">{description}</p>
         </CardContent>
         <div className="p-6 pt-0 mt-auto">
-           <Button variant="outline" className="w-full" tabIndex={-1}> {/* Added tabIndex -1 */}
+           <Button variant="outline" className="w-full" tabIndex={-1}> 
                 Go to {title.split(' ')[0]}
             </Button>
         </div>

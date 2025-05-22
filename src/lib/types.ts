@@ -23,6 +23,9 @@ export interface Account {
   barcode: string; // 8-digit unique
   balance: number;
   transactions: Transaction[];
+  isFrozen: boolean; // New: To freeze card purchases
+  purchaseLimitPerTransaction?: number; // New: Optional per-transaction purchase limit
+  isBarcodeDisabled: boolean; // New: To disable barcode payment functionality
 }
 
 export interface Transaction {

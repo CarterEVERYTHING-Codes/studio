@@ -2,8 +2,9 @@
 "use server";
 
 import { z } from "zod";
-import { mockUsers, mockAccounts, mockPendingTransfers, allTransactions } from "@/lib/mock-data";
-import type { PendingTransfer, Transaction, Account } from "@/lib/types";
+import { mockUsers, mockAccounts, mockPendingTransfers, allTransactions, getAccountByUserId } from "@/lib/mock-data";
+import type { PendingTransfer, Transaction, Account, User } from "@/lib/types";
+import { generateAccountDetails, type GenerateAccountDetailsInput } from "@/ai/flows/generate-account-details";
 
 // --- Initiate Transfer (User A sends to User B, User B approves) ---
 const initiateTransferSchema = z.object({
@@ -117,7 +118,7 @@ export async function initiateMoneyRequestAction(
     amount,
     status: "pending",
     initiatedDate: new Date().toISOString(),
-    notes: `Money request for $${amount.toFixed(2)} from ${requesterUser.name}. Payer to approve.`
+    notes: `Money request from ${requesterUser.name}. Payer to approve.`
   };
   mockPendingTransfers.push(newRequest);
   return { success: true, message: `Request for $${amount.toFixed(2)} sent to ${payerUser.name}. Awaiting their payment approval.`, requestId: newRequest.id };
@@ -125,16 +126,13 @@ export async function initiateMoneyRequestAction(
 
 
 // --- Manage Transfer/Request (Approve/Reject) ---
-// This action is now more generic.
-// For an initiated transfer, actorUserId is recipientUserId.
-// For a money request, actorUserId is senderUserId (the payer).
 const manageTransferSchema = z.object({
   transferId: z.string().min(1, "Transfer ID is required."),
   actorUserId: z.string().min(1, "Actor user ID is required."), // The user approving/rejecting
 });
 
 
-export async function approveTransferAction( // This can be called by recipient of transfer OR payer of request
+export async function approveTransferAction( 
   values: z.infer<typeof manageTransferSchema>
 ): Promise<{ success: boolean; message: string }> {
   const validation = manageTransferSchema.safeParse(values);
@@ -148,9 +146,8 @@ export async function approveTransferAction( // This can be called by recipient 
     return { success: false, message: "Pending transfer/request not found." };
   }
 
-  // Determine if this is approval of a transfer TO actor, or approval of payment FROM actor
-  const isActorRecipient = pendingTransfer.recipientUserId === actorUserId; // Actor is receiving funds
-  const isActorPayer = pendingTransfer.senderUserId === actorUserId; // Actor is sending funds (paying a request)
+  const isActorRecipient = pendingTransfer.recipientUserId === actorUserId; 
+  const isActorPayer = pendingTransfer.senderUserId === actorUserId; 
 
   if (!isActorRecipient && !isActorPayer) {
     return { success: false, message: "You are not authorized to approve this item." };
@@ -159,8 +156,8 @@ export async function approveTransferAction( // This can be called by recipient 
     return { success: false, message: `This item is already ${pendingTransfer.status}.` };
   }
 
-  const senderAccount = mockAccounts.find(acc => acc.id === pendingTransfer.senderAccountId); // Account that will be debited
-  const recipientAccount = mockAccounts.find(acc => acc.id === pendingTransfer.recipientAccountId); // Account that will be credited
+  const senderAccount = mockAccounts.find(acc => acc.id === pendingTransfer.senderAccountId); 
+  const recipientAccount = mockAccounts.find(acc => acc.id === pendingTransfer.recipientAccountId); 
 
   if (!senderAccount || !recipientAccount) {
     pendingTransfer.status = "failed";
@@ -169,7 +166,6 @@ export async function approveTransferAction( // This can be called by recipient 
     return { success: false, message: "Error: Sender or recipient account could not be found. Action failed." };
   }
 
-  // The senderAccount (source of funds) must have enough balance
   if (senderAccount.balance < pendingTransfer.amount) {
     pendingTransfer.status = "failed";
     pendingTransfer.notes = (pendingTransfer.notes || "") + " Failed: Payer had insufficient funds at time of approval.";
@@ -177,7 +173,6 @@ export async function approveTransferAction( // This can be called by recipient 
     return { success: false, message: "Action failed. Payer has insufficient funds." };
   }
 
-  // Perform the transfer
   senderAccount.balance -= pendingTransfer.amount;
   recipientAccount.balance += pendingTransfer.amount;
 
@@ -227,7 +222,7 @@ export async function approveTransferAction( // This can be called by recipient 
   return { success: true, message: successMessage };
 }
 
-export async function rejectTransferAction( // This can be called by recipient of transfer OR payer of request
+export async function rejectTransferAction( 
   values: z.infer<typeof manageTransferSchema>
 ): Promise<{ success: boolean; message: string }> {
   const validation = manageTransferSchema.safeParse(values);
@@ -263,9 +258,8 @@ export async function rejectTransferAction( // This can be called by recipient o
   return { success: true, message: successMessage };
 }
 
-// Action to cancel a PENDING transfer/request *initiated by the current user*
 export async function cancelMyInitiatedItemAction(
-  values: z.infer<typeof manageTransferSchema> // transferId, actorUserId (initiator)
+  values: z.infer<typeof manageTransferSchema> 
 ): Promise<{ success: boolean; message: string }> {
     const validation = manageTransferSchema.safeParse(values);
     if (!validation.success) {
@@ -278,8 +272,6 @@ export async function cancelMyInitiatedItemAction(
         return { success: false, message: "Pending item not found." };
     }
 
-    // For a transfer I initiated, I am senderUserId.
-    // For a request I initiated, I am recipientUserId.
     const isMyTransfer = pendingItem.senderUserId === actorUserId && pendingItem.notes?.includes("Transfer from");
     const isMyRequest = pendingItem.recipientUserId === actorUserId && pendingItem.notes?.includes("Money request from");
 
@@ -298,4 +290,135 @@ export async function cancelMyInitiatedItemAction(
     
     const successMessage = isMyTransfer ? "Your initiated transfer has been cancelled." : "Your money request has been cancelled.";
     return { success: true, message: successMessage };
+}
+
+// --- Card Settings Actions ---
+
+const updateUsernameSchema = z.object({
+  userId: z.string().min(1),
+  newUsername: z.string().min(3, "Username must be at least 3 characters."),
+});
+export type UpdateUsernameFormValues = z.infer<typeof updateUsernameSchema>;
+
+export async function updateUsernameAction(values: UpdateUsernameFormValues): Promise<{ success: boolean; message: string }> {
+  const validation = updateUsernameSchema.safeParse(values);
+  if (!validation.success) {
+    return { success: false, message: "Invalid input: " + JSON.stringify(validation.error.flatten().fieldErrors) };
+  }
+  const { userId, newUsername } = validation.data;
+
+  const user = mockUsers.find(u => u.id === userId);
+  if (!user) {
+    return { success: false, message: "User not found." };
+  }
+
+  if (mockUsers.some(u => u.username === newUsername && u.id !== userId)) {
+    return { success: false, message: "Username already taken. Please choose another." };
+  }
+
+  user.username = newUsername;
+  return { success: true, message: "Username updated successfully." };
+}
+
+const updatePasswordSchema = z.object({
+  userId: z.string().min(1),
+  newPassword: z.string().min(6, "Password must be at least 6 characters."),
+});
+export type UpdatePasswordFormValues = z.infer<typeof updatePasswordSchema>;
+
+export async function updatePasswordAction(values: UpdatePasswordFormValues): Promise<{ success: boolean; message: string }> {
+  const validation = updatePasswordSchema.safeParse(values);
+  if (!validation.success) {
+    return { success: false, message: "Invalid input: " + JSON.stringify(validation.error.flatten().fieldErrors) };
+  }
+  const { userId, newPassword } = validation.data;
+
+  const user = mockUsers.find(u => u.id === userId);
+  if (!user) {
+    return { success: false, message: "User not found." };
+  }
+  // In a real app, hash the password before saving.
+  user.password = newPassword;
+  return { success: true, message: "Password updated successfully." };
+}
+
+const regenerateCardSchema = z.object({ userId: z.string().min(1) });
+export async function regenerateCardDetailsAction(values: z.infer<typeof regenerateCardSchema>): Promise<{ success: boolean; message: string; newDetails?: Account }> {
+  const validation = regenerateCardSchema.safeParse(values);
+   if (!validation.success) {
+    return { success: false, message: "Invalid input for card regeneration." };
+  }
+  const { userId } = validation.data;
+
+  const account = getAccountByUserId(userId);
+  if (!account) {
+    return { success: false, message: "Account not found for this user." };
+  }
+
+  try {
+    const genAIInput: GenerateAccountDetailsInput = { name: account.accountHolderName };
+    const cardDetails = await generateAccountDetails(genAIInput);
+
+    account.cardNumber = cardDetails.cardNumber;
+    account.cvv = cardDetails.cvv;
+    account.expiryDate = cardDetails.expiry; // Already set to 1 year from now by the flow
+    account.barcode = cardDetails.barcode;
+
+    return { success: true, message: "New card details generated successfully!", newDetails: account };
+  } catch (error) {
+    console.error("Error regenerating card details:", error);
+    return { success: false, message: "Failed to generate new card details. Please try again." };
+  }
+}
+
+const toggleFreezeCardSchema = z.object({
+  userId: z.string().min(1),
+  freeze: z.boolean(),
+});
+export async function toggleFreezeCardAction(values: z.infer<typeof toggleFreezeCardSchema>): Promise<{ success: boolean; message: string }> {
+  const validation = toggleFreezeCardSchema.safeParse(values);
+  if (!validation.success) return { success: false, message: "Invalid input."};
+  
+  const { userId, freeze } = validation.data;
+  const account = getAccountByUserId(userId);
+  if (!account) return { success: false, message: "Account not found." };
+
+  account.isFrozen = freeze;
+  return { success: true, message: `Card purchases ${freeze ? 'frozen' : 'unfrozen'} successfully.` };
+}
+
+const setPurchaseLimitSchema = z.object({
+  userId: z.string().min(1),
+  limit: z.number().min(0, "Limit must be zero or positive.").optional(), // 0 or undefined means no limit
+});
+export async function setPurchaseLimitAction(values: z.infer<typeof setPurchaseLimitSchema>): Promise<{ success: boolean; message: string }> {
+  const validation = setPurchaseLimitSchema.safeParse(values);
+  if (!validation.success) return { success: false, message: "Invalid input: " + JSON.stringify(validation.error.flatten().fieldErrors) };
+
+  const { userId, limit } = validation.data;
+  const account = getAccountByUserId(userId);
+  if (!account) return { success: false, message: "Account not found." };
+
+  account.purchaseLimitPerTransaction = (limit === undefined || limit <= 0) ? undefined : limit;
+  
+  const message = limit === undefined || limit <= 0 
+    ? "Per transaction purchase limit removed." 
+    : `Per transaction purchase limit set to $${limit.toFixed(2)}.`;
+  return { success: true, message };
+}
+
+const toggleBarcodeDisabledSchema = z.object({
+  userId: z.string().min(1),
+  disable: z.boolean(),
+});
+export async function toggleBarcodeDisabledAction(values: z.infer<typeof toggleBarcodeDisabledSchema>): Promise<{ success: boolean; message: string }> {
+  const validation = toggleBarcodeDisabledSchema.safeParse(values);
+  if (!validation.success) return { success: false, message: "Invalid input."};
+
+  const { userId, disable } = validation.data;
+  const account = getAccountByUserId(userId);
+  if (!account) return { success: false, message: "Account not found." };
+
+  account.isBarcodeDisabled = disable;
+  return { success: true, message: `Barcode payments ${disable ? 'disabled' : 'enabled'} successfully.` };
 }

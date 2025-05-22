@@ -1,5 +1,6 @@
 
 import type { User, Account, Transaction, UserRole, PendingTransfer } from "@/lib/types";
+import type { GenerateAccountDetailsInput } from "@/ai/flows/generate-account-details"; // Ensure this is correctly typed if used here
 
 export const MAIN_ADMIN_USER_ID = "mainAdminUser";
 export const MAIN_ADMIN_ACCOUNT_ID = "mainAdminAccount";
@@ -82,6 +83,9 @@ export const mockAccounts: Account[] = [
     barcode: "00000000", 
     balance: 0, 
     transactions: [],
+    isFrozen: false,
+    purchaseLimitPerTransaction: undefined,
+    isBarcodeDisabled: false,
   },
   {
     id: CAMPUS_STORE_BUSINESS_ACCOUNT_ID,
@@ -94,6 +98,9 @@ export const mockAccounts: Account[] = [
     barcode: "55555555", 
     balance: 1000, 
     transactions: [],
+    isFrozen: false,
+    purchaseLimitPerTransaction: undefined,
+    isBarcodeDisabled: false,
   },
   {
     id: "user1-acc",
@@ -107,6 +114,9 @@ export const mockAccounts: Account[] = [
     barcode: "11111111",
     balance: 150.75,
     transactions: generateTransactions("user1-acc", 5),
+    isFrozen: false,
+    purchaseLimitPerTransaction: undefined,
+    isBarcodeDisabled: false,
   },
   {
     id: "user2-acc",
@@ -119,6 +129,9 @@ export const mockAccounts: Account[] = [
     barcode: "12345678",
     balance: 320.00,
     transactions: generateTransactions("user2-acc", 3),
+    isFrozen: false,
+    purchaseLimitPerTransaction: 50, // Example: Bob has a limit
+    isBarcodeDisabled: true,      // Example: Bob has barcode disabled
   },
 ];
 
@@ -149,28 +162,23 @@ export const addMockAccount = (account: Account): void => {
   }
 };
 
+// Simplified addMockTransaction - direct balance updates for purchases are handled in businessActions
 export const addMockTransaction = (transaction: Transaction): void => {
-  allTransactions.unshift(transaction); 
+  allTransactions.unshift(transaction);
+  allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-  if (transaction.fromAccountId) {
-    const fromAccount = mockAccounts.find(acc => acc.id === transaction.fromAccountId);
-    if (fromAccount) {
-      fromAccount.balance += transaction.amount; 
-      fromAccount.transactions.unshift(transaction);
-      fromAccount.transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    }
+  const fromAccount = mockAccounts.find(acc => acc.id === transaction.fromAccountId);
+  const toAccount = mockAccounts.find(acc => acc.id === transaction.toAccountId);
+
+  if (fromAccount) {
+    fromAccount.balance -= transaction.amount; // Assuming amount is positive for the actual transfer value
+    fromAccount.transactions.unshift({...transaction, amount: -transaction.amount});
+    fromAccount.transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
-
-  if (transaction.toAccountId) {
-    const toAccount = mockAccounts.find(acc => acc.id === transaction.toAccountId);
-    if (toAccount) {
-      toAccount.balance -= transaction.amount; 
-      
-      if (!toAccount.transactions.find(t => t.id === transaction.id && t.fromAccountId === transaction.fromAccountId && t.toAccountId === transaction.toAccountId)) {
-         toAccount.transactions.unshift({...transaction}); 
-         toAccount.transactions.sort((a,b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-      }
-    }
+  if (toAccount) {
+    toAccount.balance += transaction.amount; // Assuming amount is positive for the actual transfer value
+    toAccount.transactions.unshift({...transaction, amount: transaction.amount});
+    toAccount.transactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }
 };
 
@@ -182,3 +190,8 @@ export const getAccountByCardNumber = (cardNumber: string): Account | undefined 
 export const getAccountByBarcode = (barcode: string): Account | undefined => {
   return mockAccounts.find(acc => acc.barcode === barcode);
 }
+
+export const getAccountByUserId = (userId: string): Account | undefined => {
+  return mockAccounts.find(acc => acc.userId === userId);
+};
+
