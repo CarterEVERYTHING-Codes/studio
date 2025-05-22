@@ -18,7 +18,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel as RHFFormLabel, FormMessage, FormDescription as RHFFormDescription } from "@/components/ui/form"; // Renamed for clarity
+import { Label } from "@/components/ui/label"; // Generic Label
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { LoadingLink } from "@/components/shared/LoadingLink";
@@ -174,10 +175,10 @@ export default function CardSettingsPage() {
             <div className="grid md:grid-cols-2 gap-6">
               <Form {...usernameForm}>
                 <form onSubmit={usernameForm.handleSubmit(onUsernameSubmit)} className="space-y-3 p-4 border rounded-md">
-                  <FormLabel className="text-md font-medium">Change Username</FormLabel>
+                  <RHFFormLabel className="text-md font-medium">Change Username</RHFFormLabel>
                   {renderFormResult("username")}
                   <FormField control={usernameForm.control} name="newUsername" render={({ field }) => (
-                    <FormItem><FormLabel className="text-xs">New Username</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><RHFFormLabel className="text-xs">New Username</RHFFormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <Button type="submit" size="sm" disabled={isLoading["username"]}>
                     {isLoading["username"] ? <Loader2 className="animate-spin" /> : "Update Username"}
@@ -186,13 +187,13 @@ export default function CardSettingsPage() {
               </Form>
               <Form {...passwordForm}>
                 <form onSubmit={passwordForm.handleSubmit(onPasswordSubmit)} className="space-y-3 p-4 border rounded-md">
-                  <FormLabel className="text-md font-medium">Change Password</FormLabel>
+                  <RHFFormLabel className="text-md font-medium">Change Password</RHFFormLabel>
                   {renderFormResult("password")}
                   <FormField control={passwordForm.control} name="newPassword" render={({ field }) => (
-                    <FormItem><FormLabel className="text-xs">New Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><RHFFormLabel className="text-xs">New Password</RHFFormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <FormField control={passwordForm.control} name="confirmNewPassword" render={({ field }) => (
-                    <FormItem><FormLabel className="text-xs">Confirm New Password</FormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><RHFFormLabel className="text-xs">Confirm New Password</RHFFormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <Button type="submit" size="sm" disabled={isLoading["password"]}>
                     {isLoading["password"] ? <Loader2 className="animate-spin" /> : "Update Password"}
@@ -212,10 +213,10 @@ export default function CardSettingsPage() {
             <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
-                        <FormLabel className="font-medium">Issue New Card</FormLabel>
-                        <FormDescription className="text-xs">
+                        <Label className="font-medium">Issue New Card</Label>
+                        <p className="text-xs text-muted-foreground">
                             This will generate a new card number, CVV, expiry, and barcode. Your old card will be deactivated.
-                        </FormDescription>
+                        </p>
                     </div>
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -239,10 +240,10 @@ export default function CardSettingsPage() {
                 </div>
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
-                        <FormLabel className="font-medium">Freeze Card Purchases</FormLabel>
-                        <FormDescription className="text-xs">
+                        <Label className="font-medium">Freeze Card Purchases</Label>
+                        <p className="text-xs text-muted-foreground">
                             Temporarily disable all purchases made with your card.
-                        </FormDescription>
+                        </p>
                     </div>
                     <Switch 
                         checked={account.isFrozen} 
@@ -262,11 +263,11 @@ export default function CardSettingsPage() {
             <div className="space-y-4">
                 <Form {...purchaseLimitForm}>
                     <form onSubmit={purchaseLimitForm.handleSubmit(onPurchaseLimitSubmit)} className="p-4 border rounded-md space-y-3">
-                        <FormLabel className="text-md font-medium flex items-center gap-2"><BarChartBig /> Per Transaction Purchase Limit</FormLabel>
+                        <RHFFormLabel className="text-md font-medium flex items-center gap-2"><BarChartBig /> Per Transaction Purchase Limit</RHFFormLabel>
                         {renderFormResult("purchaseLimit")}
                         <FormField control={purchaseLimitForm.control} name="limit" render={({ field }) => (
                             <FormItem>
-                                <FormLabel className="text-xs">Limit Amount ($)</FormLabel>
+                                <RHFFormLabel className="text-xs">Limit Amount ($)</RHFFormLabel>
                                 <FormControl>
                                 <Input 
                                     type="number" 
@@ -277,7 +278,7 @@ export default function CardSettingsPage() {
                                     onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))}
                                 />
                                 </FormControl>
-                                <FormDescription className="text-xs">Set to 0 or leave empty to remove the limit.</FormDescription>
+                                <RHFFormDescription className="text-xs">Set to 0 or leave empty to remove the limit.</RHFFormDescription>
                                 <FormMessage />
                             </FormItem>
                         )} />
@@ -289,10 +290,10 @@ export default function CardSettingsPage() {
                  {renderFormResult(`barcode-${!account.isBarcodeDisabled}`)}
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
-                        <FormLabel className="font-medium">Barcode Payments</FormLabel>
-                        <FormDescription className="text-xs">
+                        <Label className="font-medium">Barcode Payments</Label>
+                        <p className="text-xs text-muted-foreground">
                             Enable or disable the ability to make payments using your 8-digit barcode.
-                        </FormDescription>
+                        </p>
                     </div>
                     <Switch 
                         checked={!account.isBarcodeDisabled} 
@@ -309,3 +310,4 @@ export default function CardSettingsPage() {
     </div>
   );
 }
+
