@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { mockAccounts, getAccountByUserId } from "@/lib/mock-data"; // Ensure getAccountByUserId is exported
+import { getAccountByUserId } from "@/lib/mock-data"; // Ensure getAccountByUserId is exported
 import type { Account } from "@/lib/types";
 import { 
   updateUsernameAction, updatePasswordAction, regenerateCardDetailsAction, 
@@ -59,7 +59,7 @@ export default function CardSettingsPage() {
   const fetchAccountDetails = useCallback(() => {
     if (user) {
       const userAccount = getAccountByUserId(user.id);
-      setAccount(userAccount || null);
+      setAccount(userAccount ? { ...userAccount } : null); // Ensure a new object reference
     }
   }, [user]);
 
@@ -84,7 +84,7 @@ export default function CardSettingsPage() {
   useEffect(() => {
       if (account) {
           usernameForm.setValue("newUsername", user?.username || "");
-          purchaseLimitForm.setValue("limit", account.purchaseLimitPerTransaction === null ? undefined : account.purchaseLimitPerTransaction);
+          purchaseLimitForm.setValue("limit", account.purchaseLimitPerTransaction === null || account.purchaseLimitPerTransaction === undefined ? undefined : account.purchaseLimitPerTransaction);
       }
   }, [account, user, usernameForm, purchaseLimitForm]);
 
@@ -99,7 +99,16 @@ export default function CardSettingsPage() {
     if (result.success) {
       toast({ title: "Success!", description: result.message });
       fetchAccountDetails(); // Refresh account details
-      if (formToReset && typeof formToReset.reset === 'function') formToReset.reset();
+      if (formToReset && typeof formToReset.reset === 'function') {
+        if (actionName === 'password') { // Special handling for password form reset
+            formToReset.reset({ newPassword: "", confirmNewPassword: "" });
+        } else if (actionName === 'purchaseLimit') {
+            // fetchAccountDetails will call setValue for limit, so no explicit formToReset needed here after fetch.
+        }
+         else {
+            formToReset.reset();
+        }
+      }
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
     }
@@ -122,7 +131,7 @@ export default function CardSettingsPage() {
 
   const onToggleFreeze = async (freeze: boolean) => {
     if (!user) return;
-    await handleAction(`freeze-${freeze}`, () => toggleFreezeCardAction({ userId: user.id, freeze }));
+    await handleAction("toggleFreeze", () => toggleFreezeCardAction({ userId: user.id, freeze }));
   };
   
   const onPurchaseLimitSubmit: SubmitHandler<z.infer<typeof purchaseLimitSchema>> = async (data) => {
@@ -132,7 +141,7 @@ export default function CardSettingsPage() {
 
   const onToggleBarcodeDisabled = async (disable: boolean) => {
     if (!user) return;
-    await handleAction(`barcode-${disable}`, () => toggleBarcodeDisabledAction({ userId: user.id, disable }));
+    await handleAction("toggleBarcode", () => toggleBarcodeDisabledAction({ userId: user.id, disable }));
   };
 
   if (!user || !account) {
@@ -181,7 +190,8 @@ export default function CardSettingsPage() {
                     <FormItem><RHFFormLabel className="text-xs">New Username</RHFFormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <Button type="submit" size="sm" disabled={isLoading["username"]}>
-                    {isLoading["username"] ? <Loader2 className="animate-spin" /> : "Update Username"}
+                    {isLoading["username"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                    Update Username
                   </Button>
                 </form>
               </Form>
@@ -196,7 +206,8 @@ export default function CardSettingsPage() {
                     <FormItem><RHFFormLabel className="text-xs">Confirm New Password</RHFFormLabel><FormControl><Input type="password" {...field} /></FormControl><FormMessage /></FormItem>
                   )} />
                   <Button type="submit" size="sm" disabled={isLoading["password"]}>
-                    {isLoading["password"] ? <Loader2 className="animate-spin" /> : "Update Password"}
+                    {isLoading["password"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                    Update Password
                   </Button>
                 </form>
               </Form>
@@ -209,7 +220,7 @@ export default function CardSettingsPage() {
           <section>
             <h3 className="text-lg font-semibold mb-3 flex items-center gap-2"><CreditCard className="text-primary"/> Card Management</h3>
              {renderFormResult("regenerateCard")}
-             {renderFormResult(`freeze-${!account.isFrozen}`)}
+             {renderFormResult("toggleFreeze")}
             <div className="space-y-4">
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
@@ -221,7 +232,7 @@ export default function CardSettingsPage() {
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" disabled={isLoading["regenerateCard"]}>
-                            {isLoading["regenerateCard"] ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                            {isLoading["regenerateCard"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <RefreshCw />}
                             Re-Issue Card
                         </Button>
                         </AlertDialogTrigger>
@@ -248,7 +259,7 @@ export default function CardSettingsPage() {
                     <Switch 
                         checked={account.isFrozen} 
                         onCheckedChange={(checked) => onToggleFreeze(checked)}
-                        disabled={isLoading[`freeze-${!account.isFrozen}`]}
+                        disabled={isLoading["toggleFreeze"]}
                         aria-label="Freeze card purchases"
                     />
                 </div>
@@ -283,11 +294,12 @@ export default function CardSettingsPage() {
                             </FormItem>
                         )} />
                         <Button type="submit" size="sm" disabled={isLoading["purchaseLimit"]}>
-                            {isLoading["purchaseLimit"] ? <Loader2 className="animate-spin" /> : "Set Limit"}
+                            {isLoading["purchaseLimit"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : null}
+                             Set Limit
                         </Button>
                     </form>
                 </Form>
-                 {renderFormResult(`barcode-${!account.isBarcodeDisabled}`)}
+                 {renderFormResult("toggleBarcode")}
                 <div className="flex items-center justify-between p-4 border rounded-md">
                     <div>
                         <Label className="font-medium">Barcode Payments</Label>
@@ -298,7 +310,7 @@ export default function CardSettingsPage() {
                     <Switch 
                         checked={!account.isBarcodeDisabled} 
                         onCheckedChange={(checked) => onToggleBarcodeDisabled(!checked)}
-                        disabled={isLoading[`barcode-${!account.isBarcodeDisabled}`]}
+                        disabled={isLoading["toggleBarcode"]}
                         aria-label="Enable/Disable barcode payments"
                     />
                 </div>
@@ -311,3 +323,4 @@ export default function CardSettingsPage() {
   );
 }
 
+    
