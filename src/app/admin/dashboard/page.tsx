@@ -4,7 +4,7 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { UserCog, ListChecks, Users, CreditCard, Landmark, FileSearch, Activity } from "lucide-react";
+import { UserCog, ListChecks, Users, CreditCard, Landmark, FileSearch } from "lucide-react";
 import { mockAccounts, MAIN_ADMIN_ACCOUNT_ID, MAIN_ADMIN_USER_ID, allTransactions } from "@/lib/mock-data";
 import { useEffect, useState } from "react";
 import type { Account } from "@/lib/types";
@@ -44,7 +44,7 @@ export default function AdminDashboardPage() {
                     </CardHeader>
                     <CardContent>
                         <p className="text-2xl font-bold text-green-800 dark:text-green-200">Balance: ${mainAdminAccountBalance.toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground mt-1">View detailed transactions in "All System Transactions" or "Live Dashboard".</p>
+                        <p className="text-xs text-muted-foreground mt-1">View detailed transactions in "All System Transactions".</p>
                     </CardContent>
                 </Card>
             </CardContent>
@@ -52,12 +52,6 @@ export default function AdminDashboardPage() {
       </Card>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <DashboardActionCard
-          title="Live Dashboard"
-          description="View transactions, issue accounts, and manage funds in one place."
-          href="/admin/live-dashboard"
-          icon={<Activity className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
-        />
         <DashboardActionCard
           title="Issue New Account"
           description="Create new user accounts with generated card details."
