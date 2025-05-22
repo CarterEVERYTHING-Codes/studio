@@ -15,7 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { makeCardPaymentAction, makeBarcodePaymentAction } from "@/actions/businessActions";
 import { useAuth } from "@/hooks/useAuth";
 import { ArrowLeft, CreditCard, QrCode, Loader2, XCircle, CheckCircle, ScanLine, Camera, AlertTriangle, Info } from "lucide-react";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { BrowserMultiFormatReader } from '@zxing/browser';
 
@@ -295,10 +295,10 @@ export default function MakePurchasePage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/business/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/business/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Business Dashboard
-      </Link>
+      </LoadingLink>
       <Card className="max-w-xl mx-auto shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl">Make a Purchase</CardTitle>
@@ -485,4 +485,3 @@ export default function MakePurchasePage() {
     </div>
   );
 }
-

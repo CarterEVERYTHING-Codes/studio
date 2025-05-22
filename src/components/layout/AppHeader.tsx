@@ -1,7 +1,7 @@
 
 "use client";
 
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
 import { Home, LogOut, UserCircle, Briefcase, UserCog, PanelLeft } from "lucide-react";
@@ -14,6 +14,8 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useRouter } from "next/navigation"; // Keep for programmatic navigation
+import { useNavigation } from "@/contexts/NavigationContext"; // Import useNavigation
 
 interface AppHeaderProps {
   onToggleSidebar?: () => void; // For potential future sidebar integration
@@ -21,6 +23,8 @@ interface AppHeaderProps {
 
 export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const { user, logout } = useAuth();
+  const router = useRouter(); // For programmatic navigation
+  const { setIsNavigating } = useNavigation(); // Get setIsNavigating
 
   const getRoleIcon = () => {
     if (!user) return <UserCircle />;
@@ -46,6 +50,21 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
     }
   }
 
+  const handleDashboardNavigation = () => {
+    const path = getDashboardPath();
+    // Check if it's different from current path to avoid unnecessary loading state
+    // Note: window.location.pathname might not be updated yet if called during intensive processing
+    // For simplicity, we'll set it. The GlobalNavigationLoader hides on pathname change anyway.
+    setIsNavigating(true); 
+    router.push(path);
+  };
+
+  const handleLogout = () => {
+    setIsNavigating(true); // Show loader for logout process
+    logout();
+    // GlobalNavigationLoader will hide on pathname change to '/'
+  };
+
   return (
     <header className="sticky top-0 z-40 w-full border-b bg-card shadow-sm">
       <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -56,13 +75,14 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
                <span className="sr-only">Toggle Sidebar</span>
              </Button>
           )}
-          <Link href={getDashboardPath()} className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-primary/80 transition-colors">
+          {/* Use LoadingLink for the main logo/brand link */}
+          <LoadingLink href={getDashboardPath()} className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-primary/80 transition-colors">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary">
               <path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM8.547 4.505a8.25 8.25 0 0 1 8.342 0 .75.75 0 0 1 .007.974l-.265.322-8.072.002-.272-.322a.75.75 0 0 1 .26-.976Zm1.129 12.75a.75.75 0 0 0 .078-.979l-.178-.22A8.214 8.214 0 0 1 7.5 12c0-1.92.666-3.68 1.776-5.046l.172-.215a.75.75 0 0 0-.083-.979A8.25 8.25 0 0 0 3.75 12a8.25 8.25 0 0 0 5.925 7.978Zm0-14.453A8.25 8.25 0 0 0 8.547 4.505l-.26.316a.75.75 0 0 0 .083.979l.172.215C9.594 7.32 10.25 9.082 10.25 10.5c0 1.92-.666 3.68-1.776 5.046l-.172.215a.75.75 0 0 0 .083.979l.26.316a8.25 8.25 0 0 0 1.13-1.723Z" />
               <path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9ZM5.25 12a.75.75 0 0 0 .75.75H9a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H6a.75.75 0 0 0-.75.75v3Zm9 0a.75.75 0 0 0 .75.75h3a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75v3Z" />
             </svg>
             <span>Campus CashFlow</span>
-          </Link>
+          </LoadingLink>
         </div>
 
         <div className="flex items-center gap-4">
@@ -91,12 +111,13 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => router.push(getDashboardPath())}>
+                {/* Programmatic navigation for dashboard link in dropdown */}
+                <DropdownMenuItem onClick={handleDashboardNavigation}>
                   <Home className="mr-2 h-4 w-4" />
                   <span>Dashboard</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={logout} className="text-destructive focus:text-destructive-foreground focus:bg-destructive">
+                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive-foreground focus:bg-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>Log out</span>
                 </DropdownMenuItem>

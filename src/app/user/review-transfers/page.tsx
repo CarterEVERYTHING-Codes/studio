@@ -10,7 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { approveTransferAction, rejectTransferAction, cancelMyInitiatedItemAction } from "@/actions/userActions";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, BellRing, Check, X, Loader2, Info, User, History as HistoryIcon, Ban, RefreshCcw } from "lucide-react";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -172,10 +172,10 @@ export default function ReviewTransfersPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Dashboard
-      </Link>
+      </LoadingLink>
       <Button onClick={refreshData} variant="outline" size="sm" className="mb-4">
         <RefreshCcw className="mr-2 h-4 w-4"/> Refresh Data
       </Button>

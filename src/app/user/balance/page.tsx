@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import type { Account } from "@/lib/types";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Wallet, ArrowLeft, TrendingUp, TrendingDown } from "lucide-react";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip as ChartTooltip } from "recharts"
 import { ChartContainer, ChartTooltipContent } from "@/components/ui/chart"
 import { format } from "date-fns";
@@ -59,10 +59,10 @@ export default function UserBalancePage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Dashboard
-      </Link>
+      </LoadingLink>
       <Card className="max-w-2xl mx-auto shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><Wallet className="text-primary"/> Account Balance</CardTitle>

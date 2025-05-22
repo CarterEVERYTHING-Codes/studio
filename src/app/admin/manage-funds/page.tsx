@@ -16,7 +16,7 @@ import { manageFundsAction } from "@/actions/businessActions"; // Action remains
 import { useAuth } from "@/hooks/useAuth";
 import { mockAccounts, mockUsers } from "@/lib/mock-data";
 import { ArrowLeft, Landmark, Loader2, AlertCircle, CheckCircle, XCircle } from "lucide-react";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 const fundManagementSchema = z.object({
@@ -72,10 +72,10 @@ export default function AdminManageFundsPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/admin/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/admin/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Admin Dashboard
-      </Link>
+      </LoadingLink>
       <Card className="max-w-lg mx-auto shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><Landmark className="text-primary"/> Manage Account Funds (Admin)</CardTitle>

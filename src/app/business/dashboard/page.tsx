@@ -1,6 +1,6 @@
 
 "use client";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
@@ -73,7 +73,7 @@ interface DashboardActionCardProps {
 
 function DashboardActionCard({ title, description, href, icon }: DashboardActionCardProps) {
   return (
-    <Link href={href} passHref>
+    <LoadingLink href={href} passHref className="h-full"> {/* Changed Link to LoadingLink */}
       <Card className="hover:shadow-xl transition-shadow duration-300 group cursor-pointer h-full flex flex-col">
         <CardHeader className="flex-shrink-0">
           <div className="flex items-center justify-center mb-4 bg-primary/10 rounded-full p-4 w-20 h-20 mx-auto">
@@ -85,11 +85,11 @@ function DashboardActionCard({ title, description, href, icon }: DashboardAction
           <p className="text-sm text-muted-foreground text-center">{description}</p>
         </CardContent>
         <div className="p-6 pt-0 mt-auto">
-           <Button variant="outline" className="w-full">
+           <Button variant="outline" className="w-full" tabIndex={-1}> {/* Added tabIndex -1 */}
                 Go to {title.split(' ')[0]}
             </Button>
         </div>
       </Card>
-    </Link>
+    </LoadingLink>
   );
 }

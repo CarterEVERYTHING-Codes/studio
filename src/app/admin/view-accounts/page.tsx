@@ -8,7 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { ArrowLeft, Users as UsersIcon, CreditCard, Mail, Phone, Shield, Briefcase, Lock, CalendarDays, QrCode } from "lucide-react";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { Badge } from "@/components/ui/badge";
 import { useAuth } from "@/hooks/useAuth"; // Import useAuth
 
@@ -45,7 +45,7 @@ export default function AdminViewAccountsPage() {
         ))
     );
     setDisplayedAccounts(filtered);
-  }, [searchTerm, isMainAdmin]); // Add isMainAdmin to dependency array
+  }, [searchTerm, isMainAdmin, user]); // Added user to dependencies to re-evaluate isMainAdmin if user changes
 
   const getRoleIcon = (role?: User['role']) => {
     if (role === 'admin') return <Shield className="h-4 w-4 text-red-500" />;
@@ -56,10 +56,10 @@ export default function AdminViewAccountsPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/admin/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/admin/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Admin Dashboard
-      </Link>
+      </LoadingLink>
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><UsersIcon className="text-primary"/> All System Accounts</CardTitle>
@@ -166,4 +166,3 @@ export default function AdminViewAccountsPage() {
     </div>
   );
 }
-

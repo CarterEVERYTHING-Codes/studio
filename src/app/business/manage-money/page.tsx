@@ -8,7 +8,7 @@ import type { Account } from "@/lib/types";
 import { TransactionTable } from "@/components/shared/TransactionTable";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { DollarSign, ArrowLeft, History, TrendingUp, TrendingDown } from "lucide-react";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 
 export default function BusinessManageMoneyPage() {
   const { user } = useAuth();
@@ -61,10 +61,10 @@ export default function BusinessManageMoneyPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/business/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/business/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Business Dashboard
-      </Link>
+      </LoadingLink>
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><DollarSign className="text-primary"/> Manage Your Money</CardTitle>

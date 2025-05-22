@@ -13,7 +13,7 @@ import { initiateTransferAction, type InitiateTransferFormValues } from "@/actio
 import { useAuth } from "@/hooks/useAuth";
 import { useState, useEffect } from "react";
 import { ArrowLeft, Loader2, Send, User, DollarSign, CheckCircle, XCircle } from "lucide-react";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { mockAccounts } from "@/lib/mock-data";
 
@@ -85,10 +85,10 @@ export default function TransferMoneyPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Dashboard
-      </Link>
+      </LoadingLink>
       <Card className="max-w-lg mx-auto shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><Send className="text-primary"/> Transfer Money</CardTitle>

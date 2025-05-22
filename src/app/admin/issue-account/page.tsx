@@ -13,8 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { issueNewAccountAction } from "@/actions/adminActions";
 import { useState } from "react";
 import type { Account } from "@/lib/types";
-import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle, User, KeyRound, AlertCircle as ImportedAlertCircle } from "lucide-react";
-import Link from "next/link";
+import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle, User, KeyRound, AlertCircle } from "lucide-react";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const issueAccountSchema = z.object({
@@ -87,11 +87,11 @@ export default function IssueAccountPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/admin/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/admin/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Admin Dashboard
-      </Link>
-      <Card className="max-w-2xl mx-auto shadow-lg relative"> {/* Added relative positioning */}
+      </LoadingLink>
+      <Card className="max-w-2xl mx-auto shadow-lg relative">
         {isLoading && (
           <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-lg">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -107,7 +107,7 @@ export default function IssueAccountPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <fieldset disabled={isLoading} className="space-y-6"> {/* Added fieldset to disable inputs */}
+              <fieldset disabled={isLoading} className="space-y-6"> 
                 {formError && (
                    <Alert variant="destructive">
                       <XCircle className="h-4 w-4" />
@@ -205,7 +205,7 @@ export default function IssueAccountPage() {
         </CardContent>
       </Card>
 
-      {issuedDetails && !isLoading && ( // Ensure this only shows when not loading and details are present
+      {issuedDetails && !isLoading && ( 
         <Card className="max-w-2xl mx-auto mt-8 shadow-lg bg-green-50 border-green-200">
           <CardHeader>
             <CardTitle className="text-xl text-green-700 flex items-center gap-2"><CheckCircle /> Account Issued Successfully!</CardTitle>
@@ -223,7 +223,7 @@ export default function IssueAccountPage() {
             <p><strong>Barcode:</strong> <span className="font-mono">{issuedDetails.account.barcode}</span></p>
             <p><strong>Initial Balance:</strong> ${issuedDetails.account.balance.toFixed(2)}</p>
             <Alert variant="default" className="bg-primary/10 border-primary/20 text-primary">
-                <ImportedAlertCircle className="h-4 w-4" />
+                <AlertCircle className="h-4 w-4" />
                 <AlertTitle>User Credentials</AlertTitle>
                 <AlertDescription>
                     Please provide the following credentials to the user:

@@ -5,7 +5,7 @@ import { TransactionTable } from "@/components/shared/TransactionTable";
 import { allTransactions, mockAccounts } from "@/lib/mock-data"; // Simulating data fetch
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { ListChecks, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { useEffect, useState } from "react";
 import type { Transaction } from "@/lib/types";
 
@@ -30,10 +30,10 @@ export default function ViewAllTransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/admin/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/admin/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Admin Dashboard
-      </Link>
+      </LoadingLink>
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><ListChecks className="text-primary"/> All System Transactions</CardTitle>
@@ -48,4 +48,3 @@ export default function ViewAllTransactionsPage() {
     </div>
   );
 }
-

@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CreditCard, ShieldCheck, QrCode, CalendarDays, Lock, ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 
 export default function UserCardInfoPage() {
   const { user } = useAuth();
@@ -43,10 +43,10 @@ export default function UserCardInfoPage() {
 
   return (
     <div className="space-y-6">
-       <Link href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+       <LoadingLink href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Dashboard
-      </Link>
+      </LoadingLink>
       <Card className="max-w-lg mx-auto shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><CreditCard className="text-primary"/> Your Card Information</CardTitle>

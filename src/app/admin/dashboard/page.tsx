@@ -1,6 +1,6 @@
 
 "use client";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
@@ -22,6 +22,7 @@ export default function AdminDashboardPage() {
         }
     }
   // Watch for changes in mockAccounts or allTransactions as they can be mutated by actions
+  // Adding dependencies that trigger re-check of balance.
   }, [user, mockAccounts, allTransactions]); 
 
 
@@ -40,7 +41,9 @@ export default function AdminDashboardPage() {
                 <Card className="bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-700">
                     <CardHeader>
                         <CardTitle className="text-lg text-green-700 dark:text-green-300">Main Admin Account (Fee Collection)</CardTitle>
-                        <CardDescription className="text-green-600 dark:text-green-400">This account receives all service fees.</CardDescription>
+                        <CardDescription className="text-green-600 dark:text-green-400">
+                            This account receives all service fees. Balance updates when transactions occur.
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <p className="text-2xl font-bold text-green-800 dark:text-green-200">Balance: ${mainAdminAccountBalance.toFixed(2)}</p>
@@ -98,7 +101,7 @@ interface DashboardActionCardProps {
 
 function DashboardActionCard({ title, description, href, icon }: DashboardActionCardProps) {
   return (
-    <Link href={href} passHref>
+    <LoadingLink href={href} passHref className="h-full"> {/* Changed Link to LoadingLink and ensure it takes full height */}
       <Card className="hover:shadow-xl transition-shadow duration-300 group cursor-pointer h-full flex flex-col">
         <CardHeader className="flex-shrink-0">
           <div className="flex items-center justify-center mb-4 bg-primary/10 rounded-full p-4 w-20 h-20 mx-auto">
@@ -110,12 +113,11 @@ function DashboardActionCard({ title, description, href, icon }: DashboardAction
           <p className="text-sm text-muted-foreground text-center">{description}</p>
         </CardContent>
         <div className="p-6 pt-0 mt-auto">
-            <Button variant="outline" className="w-full">
+            <Button variant="outline" className="w-full" tabIndex={-1}> {/* Added tabIndex -1 as link handles focus */}
                 Go to {title.split(' ')[0]}
             </Button>
         </div>
       </Card>
-    </Link>
+    </LoadingLink>
   );
 }
-

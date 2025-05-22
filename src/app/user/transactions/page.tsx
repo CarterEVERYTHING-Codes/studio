@@ -8,7 +8,7 @@ import type { Account } from "@/lib/types";
 import { TransactionTable } from "@/components/shared/TransactionTable";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { History, ArrowLeft } from "lucide-react";
-import Link from "next/link";
+import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
 
 export default function UserTransactionsPage() {
   const { user } = useAuth();
@@ -39,10 +39,10 @@ export default function UserTransactionsPage() {
 
   return (
     <div className="space-y-6">
-      <Link href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
+      <LoadingLink href="/user/dashboard" className="inline-flex items-center text-sm text-primary hover:underline mb-4">
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Dashboard
-      </Link>
+      </LoadingLink>
       <Card className="shadow-lg">
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><History className="text-primary"/> Transaction History</CardTitle>
