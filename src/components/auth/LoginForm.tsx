@@ -7,45 +7,33 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import type { UserRole } from "@/lib/types";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, LogIn } from "lucide-react";
-import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
   password: z.string().min(1, "Password is required"),
-  role: z.enum(["admin", "business", "user"], {
-    required_error: "Account type is required",
-  }),
 });
 
 type LoginFormInputs = z.infer<typeof loginSchema>;
 
 export function LoginForm() {
   const { login, isLoading, error: authError } = useAuth();
-  const [showPassword, setShowPassword] = useState(false); // Keep for password visibility toggle
+  const [showPassword, setShowPassword] = useState(false);
 
   const form = useForm<LoginFormInputs>({
     resolver: zodResolver(loginSchema),
     defaultValues: {
       username: "",
       password: "",
-      // role: undefined, // Let placeholder handle initial state for select
     },
   });
 
   const onSubmit: SubmitHandler<LoginFormInputs> = async (data) => {
-    await login(data.username, data.password, data.role as UserRole);
+    await login(data.username, data.password);
   };
 
   return (
@@ -55,7 +43,7 @@ export function LoginForm() {
           <LogIn size={32} />
         </div>
         <CardTitle className="text-3xl font-bold">Campus CashFlow Login</CardTitle>
-        <CardDescription>Access your account</CardDescription>
+        <CardDescription>Access your account. The system will auto-detect your account type.</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -90,28 +78,6 @@ export function LoginForm() {
                     <Input type={showPassword ? "text" : "password"} placeholder="Enter your password" {...field} />
                   </FormControl>
                   {/* TODO: Add a button to toggle showPassword if desired */}
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-            <FormField
-              control={form.control}
-              name="role"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Account Type</FormLabel>
-                  <Select onValueChange={field.onChange} defaultValue={field.value}>
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select account type" />
-                      </SelectTrigger>
-                    </FormControl>
-                    <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="business">Business</SelectItem>
-                      <SelectItem value="user">User</SelectItem>
-                    </SelectContent>
-                  </Select>
                   <FormMessage />
                 </FormItem>
               )}

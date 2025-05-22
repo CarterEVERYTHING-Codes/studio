@@ -2,13 +2,13 @@
 "use client";
 
 import type { AuthenticatedUser, UserRole } from "@/lib/types";
-import { useRouter } from "next/navigation"; // Corrected import
+import { useRouter } from "next/navigation";
 import React, { createContext, useState, useEffect, ReactNode, useCallback } from "react";
 import { mockUsers } from "@/lib/mock-data";
 
 interface AuthContextType {
   user: AuthenticatedUser | null;
-  login: (username: string, password_0: string, role_1: UserRole) => Promise<boolean>;
+  login: (username: string, password_0: string) => Promise<boolean>; // Role removed
   logout: () => void;
   isLoading: boolean;
   error: string | null;
@@ -43,27 +43,36 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     loadUserFromStorage();
   }, [loadUserFromStorage]);
 
-  const login = async (username: string, password_0: string, role_1: UserRole): Promise<boolean> => {
+  const login = async (username: string, password_0: string): Promise<boolean> => {
     setIsLoading(true);
     setError(null);
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    const foundUser = mockUsers.find(
-      (u) => u.username === username && u.password === password_0 && u.role === role_1
-    );
+    await new Promise(resolve => setTimeout(resolve, 500)); // Simulate API call
+
+    const possibleRoles: UserRole[] = ["admin", "business", "user"];
+    let foundUser: AuthenticatedUser | undefined = undefined;
+
+    for (const role of possibleRoles) {
+      const potentialUser = mockUsers.find(
+        (u) => u.username === username && u.password === password_0 && u.role === role
+      );
+      if (potentialUser) {
+        foundUser = { ...potentialUser };
+        break; 
+      }
+    }
 
     if (foundUser) {
-      const authUser: AuthenticatedUser = { ...foundUser };
-      setUser(authUser);
-      localStorage.setItem("campusCashFlowUser", JSON.stringify(authUser));
+      setUser(foundUser);
+      localStorage.setItem("campusCashFlowUser", JSON.stringify(foundUser));
       setIsLoading(false);
+      
       // Redirect based on role
-      if (authUser.role === "admin") router.push("/admin/dashboard");
-      else if (authUser.role === "business") router.push("/business/dashboard");
-      else if (authUser.role === "user") router.push("/user/dashboard");
+      if (foundUser.role === "admin") router.push("/admin/dashboard");
+      else if (foundUser.role === "business") router.push("/business/dashboard");
+      else if (foundUser.role === "user") router.push("/user/dashboard");
       return true;
     } else {
-      setError("Invalid credentials or role mismatch.");
+      setError("Invalid username or password.");
       setIsLoading(false);
       return false;
     }

@@ -4,7 +4,7 @@
 import { LoadingLink } from "@/components/shared/LoadingLink";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
-import { Home, LogOut, UserCircle, Briefcase, UserCog, PanelLeft, Sun, Moon, Laptop, HelpCircle, Bug } from "lucide-react"; // Added HelpCircle, Bug
+import { Home, LogOut, UserCircle, Briefcase, UserCog, PanelLeft, Sun, Moon, Laptop, HelpCircle, Bug } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -22,7 +22,7 @@ import { useRouter } from "next/navigation";
 import { useNavigation } from "@/contexts/NavigationContext";
 import { useTheme } from "next-themes"; 
 import { useEffect, useState } from "react";
-import { useToast } from "@/hooks/use-toast"; // Added for tutorial button
+import { TutorialModal } from "./TutorialModal"; // Import the new TutorialModal
 
 interface AppHeaderProps {
   onToggleSidebar?: () => void;
@@ -34,12 +34,11 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   const { setIsNavigating } = useNavigation();
   const { setTheme, resolvedTheme } = useTheme(); 
   const [mounted, setMounted] = useState(false); 
-  const { toast } = useToast(); // Added for tutorial button
+  const [isTutorialOpen, setIsTutorialOpen] = useState(false);
 
   useEffect(() => {
     setMounted(true); 
   }, []);
-
 
   const getRoleIcon = () => {
     if (!user) return <UserCircle />;
@@ -77,11 +76,10 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   };
 
   const handleTutorialClick = () => {
-    toast({
-      title: "Beginner Tutorial",
-      description: "Tutorial content would appear here (e.g., in a modal or new page).",
-    });
+    setIsTutorialOpen(true);
   };
+
+  const canShowTutorial = user && (user.role === 'user' || user.role === 'business');
 
   if (!mounted) { 
     return ( 
@@ -105,101 +103,103 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
   }
 
   return (
-    <header className="sticky top-0 z-40 w-full border-b bg-card shadow-sm">
-      <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
-          {onToggleSidebar && (
-             <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="md:hidden">
-               <PanelLeft className="h-5 w-5" />
-               <span className="sr-only">Toggle Sidebar</span>
-             </Button>
-          )}
-          <LoadingLink href={getDashboardPath()} className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-primary/80 transition-colors">
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary">
-              <path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM8.547 4.505a8.25 8.25 0 0 1 8.342 0 .75.75 0 0 1 .007.974l-.265.322-8.072.002-.272-.322a.75.75 0 0 1 .26-.976Zm1.129 12.75a.75.75 0 0 0 .078-.979l-.178-.22A8.214 8.214 0 0 1 7.5 12c0-1.92.666-3.68 1.776-5.046l.172-.215a.75.75 0 0 0-.083-.979A8.25 8.25 0 0 0 3.75 12a8.25 8.25 0 0 0 5.925 7.978Zm0-14.453A8.25 8.25 0 0 0 8.547 4.505l-.26.316a.75.75 0 0 0 .083.979l.172.215C9.594 7.32 10.25 9.082 10.25 10.5c0 1.92-.666 3.68-1.776 5.046l-.172.215a.75.75 0 0 0 .083.979l.26.316a8.25 8.25 0 0 0 1.13-1.723Z" />
-              <path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9ZM5.25 12a.75.75 0 0 0 .75.75H9a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H6a.75.75 0 0 0-.75.75v3Zm9 0a.75.75 0 0 0 .75.75h3a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75v3Z" />
-            </svg>
-            <span>Campus CashFlow</span>
-          </LoadingLink>
-        </div>
+    <>
+      <header className="sticky top-0 z-40 w-full border-b bg-card shadow-sm">
+        <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4">
+            {onToggleSidebar && (
+              <Button variant="ghost" size="icon" onClick={onToggleSidebar} className="md:hidden">
+                <PanelLeft className="h-5 w-5" />
+                <span className="sr-only">Toggle Sidebar</span>
+              </Button>
+            )}
+            <LoadingLink href={getDashboardPath()} className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-primary/80 transition-colors">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary">
+                <path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM8.547 4.505a8.25 8.25 0 0 1 8.342 0 .75.75 0 0 1 .007.974l-.265.322-8.072.002-.272-.322a.75.75 0 0 1 .26-.976Zm1.129 12.75a.75.75 0 0 0 .078-.979l-.178-.22A8.214 8.214 0 0 1 7.5 12c0-1.92.666-3.68 1.776-5.046l.172-.215a.75.75 0 0 0-.083-.979A8.25 8.25 0 0 0 3.75 12a8.25 8.25 0 0 0 5.925 7.978Zm0-14.453A8.25 8.25 0 0 0 8.547 4.505l-.26.316a.75.75 0 0 0 .083.979l.172.215C9.594 7.32 10.25 9.082 10.25 10.5c0 1.92-.666 3.68-1.776 5.046l-.172.215a.75.75 0 0 0 .083.979l.26.316a8.25 8.25 0 0 0 1.13-1.723Z" />
+                <path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9ZM5.25 12a.75.75 0 0 0 .75.75H9a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H6a.75.75 0 0 0-.75.75v3Zm9 0a.75.75 0 0 0 .75.75h3a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75v3Z" />
+              </svg>
+              <span>Campus CashFlow</span>
+            </LoadingLink>
+          </div>
 
-        <div className="flex items-center gap-2">
-          {user && (
-            <>
+          <div className="flex items-center gap-2">
+            {canShowTutorial && (
               <Button variant="ghost" size="sm" onClick={handleTutorialClick}>
                 <HelpCircle className="mr-1 h-4 w-4" />
                 Tutorial
               </Button>
+            )}
+            {user && (
               <Button variant="ghost" size="sm" asChild>
                 <a href="https://forms.office.com/Pages/ResponsePage.aspx?id=BLz2Ec8cMUi0vqcgjsi4-GqIj1C-TohGgk1iAQp1X5BUNk1OREpZTVFFNFA4NklYWDVZSDI3VVo2Uy4u" target="_blank" rel="noopener noreferrer">
                   <Bug className="mr-1 h-4 w-4" />
                   Report Bug
                 </a>
               </Button>
-            </>
-          )}
-          {user && (
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                  <Avatar className="h-9 w-9">
-                    <AvatarImage src={`https://placehold.co/40x40.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar person"/>
-                    <AvatarFallback className="bg-primary hover:bg-primary/90">
-                      {getRoleIcon()}
-                    </AvatarFallback>
-                  </Avatar>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuLabel className="font-normal">
-                  <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">{user.name}</p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground capitalize pt-1">
-                      Role: <span className="font-semibold text-foreground">{user.role}</span>
-                    </p>
-                  </div>
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleDashboardNavigation}>
-                  <Home className="mr-2 h-4 w-4" />
-                  <span>Dashboard</span>
-                </DropdownMenuItem>
-                <DropdownMenuSub>
-                  <DropdownMenuSubTrigger>
-                    {resolvedTheme === 'dark' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
-                    <span>Theme</span>
-                  </DropdownMenuSubTrigger>
-                  <DropdownMenuPortal>
-                    <DropdownMenuSubContent>
-                      <DropdownMenuItem onClick={() => setTheme('light')}>
-                        <Sun className="mr-2 h-4 w-4" />
-                        Light
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setTheme('dark')}>
-                        <Moon className="mr-2 h-4 w-4" />
-                        Dark
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => setTheme('system')}>
-                        <Laptop className="mr-2 h-4 w-4" />
-                        System
-                      </DropdownMenuItem>
-                    </DropdownMenuSubContent>
-                  </DropdownMenuPortal>
-                </DropdownMenuSub>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive-foreground focus:bg-destructive">
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Log out</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          )}
+            )}
+            {user && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+                    <Avatar className="h-9 w-9">
+                      <AvatarImage src={`https://placehold.co/40x40.png?text=${user.name.charAt(0)}`} alt={user.name} data-ai-hint="avatar person"/>
+                      <AvatarFallback className="bg-primary hover:bg-primary/90">
+                        {getRoleIcon()}
+                      </AvatarFallback>
+                    </Avatar>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent className="w-56" align="end" forceMount>
+                  <DropdownMenuLabel className="font-normal">
+                    <div className="flex flex-col space-y-1">
+                      <p className="text-sm font-medium leading-none">{user.name}</p>
+                      <p className="text-xs leading-none text-muted-foreground">
+                        {user.email}
+                      </p>
+                      <p className="text-xs leading-none text-muted-foreground capitalize pt-1">
+                        Role: <span className="font-semibold text-foreground">{user.role}</span>
+                      </p>
+                    </div>
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleDashboardNavigation}>
+                    <Home className="mr-2 h-4 w-4" />
+                    <span>Dashboard</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuSub>
+                    <DropdownMenuSubTrigger>
+                      {resolvedTheme === 'dark' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
+                      <span>Theme</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuPortal>
+                      <DropdownMenuSubContent>
+                        <DropdownMenuItem onClick={() => setTheme('light')}>
+                          <Sun className="mr-2 h-4 w-4" />
+                          Light
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme('dark')}>
+                          <Moon className="mr-2 h-4 w-4" />
+                          Dark
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => setTheme('system')}>
+                          <Laptop className="mr-2 h-4 w-4" />
+                          System
+                        </DropdownMenuItem>
+                      </DropdownMenuSubContent>
+                    </DropdownMenuPortal>
+                  </DropdownMenuSub>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive-foreground focus:bg-destructive">
+                    <LogOut className="mr-2 h-4 w-4" />
+                    <span>Log out</span>
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </div>
         </div>
-      </div>
-    </header>
+      </header>
+      {user && <TutorialModal isOpen={isTutorialOpen} onClose={() => setIsTutorialOpen(false)} userRole={user.role} />}
+    </>
   );
 }
-
