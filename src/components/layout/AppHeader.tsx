@@ -22,7 +22,8 @@ import { useRouter } from "next/navigation";
 import { useNavigation } from "@/contexts/NavigationContext";
 import { useTheme } from "next-themes"; 
 import { useEffect, useState } from "react";
-import { TutorialModal } from "./TutorialModal"; // Import the new TutorialModal
+import { TutorialModal } from "./TutorialModal";
+import Image from "next/image"; // Import next/image
 
 interface AppHeaderProps {
   onToggleSidebar?: () => void;
@@ -87,10 +88,8 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
          <div className="container mx-auto flex h-16 items-center justify-between px-4 sm:px-6 lg:px-8">
             <div className="flex items-center gap-4">
             <LoadingLink href={getDashboardPath()} className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-primary/80 transition-colors">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary">
-                <path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM8.547 4.505a8.25 8.25 0 0 1 8.342 0 .75.75 0 0 1 .007.974l-.265.322-8.072.002-.272-.322a.75.75 0 0 1 .26-.976Zm1.129 12.75a.75.75 0 0 0 .078-.979l-.178-.22A8.214 8.214 0 0 1 7.5 12c0-1.92.666-3.68 1.776-5.046l.172-.215a.75.75 0 0 0-.083-.979A8.25 8.25 0 0 0 3.75 12a8.25 8.25 0 0 0 5.925 7.978Zm0-14.453A8.25 8.25 0 0 0 8.547 4.505l-.26.316a.75.75 0 0 0 .083.979l.172.215C9.594 7.32 10.25 9.082 10.25 10.5c0 1.92-.666 3.68-1.776 5.046l-.172.215a.75.75 0 0 0 .083.979l.26.316a8.25 8.25 0 0 0 1.13-1.723Z" />
-                <path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9ZM5.25 12a.75.75 0 0 0 .75.75H9a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H6a.75.75 0 0 0-.75.75v3Zm9 0a.75.75 0 0 0 .75.75h3a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75v3Z" />
-                </svg>
+                {/* Placeholder for logo until mounted to avoid hydration issues with Image */}
+                <div className="w-8 h-8"></div> 
                 <span>Campus CashFlow</span>
             </LoadingLink>
             </div>
@@ -114,10 +113,7 @@ export function AppHeader({ onToggleSidebar }: AppHeaderProps) {
               </Button>
             )}
             <LoadingLink href={getDashboardPath()} className="flex items-center gap-2 text-lg font-semibold text-primary hover:text-primary/80 transition-colors">
-              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-7 h-7 text-primary">
-                <path d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25ZM8.547 4.505a8.25 8.25 0 0 1 8.342 0 .75.75 0 0 1 .007.974l-.265.322-8.072.002-.272-.322a.75.75 0 0 1 .26-.976Zm1.129 12.75a.75.75 0 0 0 .078-.979l-.178-.22A8.214 8.214 0 0 1 7.5 12c0-1.92.666-3.68 1.776-5.046l.172-.215a.75.75 0 0 0-.083-.979A8.25 8.25 0 0 0 3.75 12a8.25 8.25 0 0 0 5.925 7.978Zm0-14.453A8.25 8.25 0 0 0 8.547 4.505l-.26.316a.75.75 0 0 0 .083.979l.172.215C9.594 7.32 10.25 9.082 10.25 10.5c0 1.92-.666 3.68-1.776 5.046l-.172.215a.75.75 0 0 0 .083.979l.26.316a8.25 8.25 0 0 0 1.13-1.723Z" />
-                <path d="M12 7.5a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9ZM5.25 12a.75.75 0 0 0 .75.75H9a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75H6a.75.75 0 0 0-.75.75v3Zm9 0a.75.75 0 0 0 .75.75h3a.75.75 0 0 0 .75-.75V9a.75.75 0 0 0-.75-.75h-3a.75.75 0 0 0-.75.75v3Z" />
-              </svg>
+              <Image src="/logo.png" alt="Campus CashFlow Logo" width={32} height={32} data-ai-hint="piggy bank"/>
               <span>Campus CashFlow</span>
             </LoadingLink>
           </div>

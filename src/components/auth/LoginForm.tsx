@@ -10,8 +10,9 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, LogIn } from "lucide-react";
+import { AlertCircle } from "lucide-react";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import Image from "next/image"; // Import next/image
 
 const loginSchema = z.object({
   username: z.string().min(1, "Username is required"),
@@ -39,8 +40,8 @@ export function LoginForm() {
   return (
     <Card className="w-full max-w-md shadow-2xl">
       <CardHeader className="text-center">
-        <div className="mx-auto bg-primary text-primary-foreground rounded-full p-3 w-fit mb-4">
-          <LogIn size={32} />
+        <div className="mx-auto mb-4">
+          <Image src="/logo.png" alt="Campus CashFlow Logo" width={80} height={80} data-ai-hint="piggy bank"/>
         </div>
         <CardTitle className="text-3xl font-bold">Campus CashFlow Login</CardTitle>
         <CardDescription>Access your account. The system will auto-detect your account type.</CardDescription>
