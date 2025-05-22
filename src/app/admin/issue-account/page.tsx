@@ -13,7 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { issueNewAccountAction } from "@/actions/adminActions";
 import { useState } from "react";
 import type { Account } from "@/lib/types";
-import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle, AlertCircle as ImportedAlertCircle, User, KeyRound } from "lucide-react"; // Renamed to avoid conflict
+import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle, User, KeyRound, AlertCircle as ImportedAlertCircle } from "lucide-react";
 import Link from "next/link";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
@@ -33,7 +33,6 @@ const issueAccountSchema = z.object({
   ),
 });
 
-// Define a type for the form values based on the schema
 export type IssueAccountFormValues = z.infer<typeof issueAccountSchema>;
 
 interface IssuedDetails {
@@ -64,7 +63,6 @@ export default function IssueAccountPage() {
     setIsLoading(true);
     setFormError(null);
     setIssuedDetails(null);
-    // Ensure initialDeposit is a number, defaulting to 0 if undefined
     const payload = { ...data, initialDeposit: data.initialDeposit || 0 };
     const result = await issueNewAccountAction(payload);
     setIsLoading(false);
@@ -93,7 +91,13 @@ export default function IssueAccountPage() {
         <ArrowLeft className="mr-1 h-4 w-4" />
         Back to Admin Dashboard
       </Link>
-      <Card className="max-w-2xl mx-auto shadow-lg">
+      <Card className="max-w-2xl mx-auto shadow-lg relative"> {/* Added relative positioning */}
+        {isLoading && (
+          <div className="absolute inset-0 bg-background/80 backdrop-blur-sm flex flex-col items-center justify-center z-10 rounded-lg">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <p className="mt-2 text-sm text-muted-foreground">Processing, please wait...</p>
+          </div>
+        )}
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><CreditCard className="text-primary"/> Issue New Account</CardTitle>
           <CardDescription>
@@ -103,94 +107,96 @@ export default function IssueAccountPage() {
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {formError && (
-                 <Alert variant="destructive">
-                    <XCircle className="h-4 w-4" />
-                    <AlertTitle>Account Creation Failed</AlertTitle>
-                    <AlertDescription>{formError}</AlertDescription>
-                  </Alert>
-              )}
-              <FormField
-                control={form.control}
-                name="accountHolderName"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Account Holder Name</FormLabel>
-                    <FormControl>
-                      <Input placeholder="e.g., John Doe" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+              <fieldset disabled={isLoading} className="space-y-6"> {/* Added fieldset to disable inputs */}
+                {formError && (
+                   <Alert variant="destructive">
+                      <XCircle className="h-4 w-4" />
+                      <AlertTitle>Account Creation Failed</AlertTitle>
+                      <AlertDescription>{formError}</AlertDescription>
+                    </Alert>
                 )}
-              />
-              <FormField
-                control={form.control}
-                name="email"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Email Address</FormLabel>
-                    <FormControl>
-                      <Input type="email" placeholder="e.g., john.doe@example.com" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="username"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1"><User className="h-4 w-4 text-muted-foreground"/> Username</FormLabel>
-                    <FormControl>
-                      <Input placeholder="Enter desired username" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="password"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel className="flex items-center gap-1"><KeyRound className="h-4 w-4 text-muted-foreground"/> Password</FormLabel>
-                    <FormControl>
-                      <Input type="password" placeholder="Enter a secure password" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="phoneNumber"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Phone Number (Optional)</FormLabel>
-                    <FormControl>
-                      <Input type="tel" placeholder="e.g., 1234567890" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="initialDeposit"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Initial Deposit (Optional)</FormLabel>
-                    <FormControl>
-                      <Input type="number" step="0.01" placeholder="e.g., 50.00" {...field} 
-                      onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)}
-                      />
-                    </FormControl>
-                    <FormDescription>Enter the initial amount to deposit into the account.</FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+                <FormField
+                  control={form.control}
+                  name="accountHolderName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Account Holder Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="e.g., John Doe" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email Address</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="e.g., john.doe@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1"><User className="h-4 w-4 text-muted-foreground"/> Username</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Enter desired username" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="flex items-center gap-1"><KeyRound className="h-4 w-4 text-muted-foreground"/> Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" placeholder="Enter a secure password" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="phoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone Number (Optional)</FormLabel>
+                      <FormControl>
+                        <Input type="tel" placeholder="e.g., 1234567890" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="initialDeposit"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Initial Deposit (Optional)</FormLabel>
+                      <FormControl>
+                        <Input type="number" step="0.01" placeholder="e.g., 50.00" {...field}
+                        onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)}
+                        />
+                      </FormControl>
+                      <FormDescription>Enter the initial amount to deposit into the account.</FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </fieldset>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Generating & Issuing...</> : "Issue Account"}
               </Button>
@@ -199,7 +205,7 @@ export default function IssueAccountPage() {
         </CardContent>
       </Card>
 
-      {issuedDetails && (
+      {issuedDetails && !isLoading && ( // Ensure this only shows when not loading and details are present
         <Card className="max-w-2xl mx-auto mt-8 shadow-lg bg-green-50 border-green-200">
           <CardHeader>
             <CardTitle className="text-xl text-green-700 flex items-center gap-2"><CheckCircle /> Account Issued Successfully!</CardTitle>
@@ -231,4 +237,3 @@ export default function IssueAccountPage() {
     </div>
   );
 }
-
