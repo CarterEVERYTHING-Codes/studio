@@ -7,7 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { useAuth } from "@/hooks/useAuth";
 import { useToast } from "@/hooks/use-toast";
-import { getAccountByUserId } from "@/lib/mock-data"; // Ensure getAccountByUserId is exported
+import { getAccountByUserId, mockUsers } from "@/lib/mock-data"; 
 import type { Account } from "@/lib/types";
 import { 
   updateUsernameAction, updatePasswordAction, regenerateCardDetailsAction, 
@@ -18,8 +18,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
-import { Form, FormControl, FormField, FormItem, FormLabel as RHFFormLabel, FormMessage, FormDescription as RHFFormDescription } from "@/components/ui/form"; // Renamed for clarity
-import { Label } from "@/components/ui/label"; // Generic Label
+import { Form, FormControl, FormField, FormItem, FormLabel as RHFFormLabel, FormMessage, FormDescription as RHFFormDescription } from "@/components/ui/form";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { LoadingLink } from "@/components/shared/LoadingLink";
@@ -53,23 +53,18 @@ export default function CardSettingsPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [account, setAccount] = useState<Account | null>(null);
-  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({}); // For multiple forms/actions
+  const [isLoading, setIsLoading] = useState<Record<string, boolean>>({});
   const [formResults, setFormResults] = useState<Record<string, {success: boolean, message: string} | null>>({});
 
-  const fetchAccountDetails = useCallback(() => {
+  useEffect(() => {
     if (user) {
-      const userAccount = getAccountByUserId(user.id);
-      setAccount(userAccount ? { ...userAccount } : null); // Ensure a new object reference
+      const userAccountData = getAccountByUserId(user.id);
+      setAccount(userAccountData ? { ...userAccountData } : null);
     }
   }, [user]);
-
-  useEffect(() => {
-    fetchAccountDetails();
-  }, [fetchAccountDetails]);
   
   const usernameForm = useForm<z.infer<typeof updateUsernameSchema>>({
     resolver: zodResolver(updateUsernameSchema),
-    defaultValues: { newUsername: user?.username || "" },
   });
 
   const passwordForm = useForm<z.infer<typeof updatePasswordSchema>>({
@@ -82,33 +77,47 @@ export default function CardSettingsPage() {
   });
 
   useEffect(() => {
-      if (account) {
-          usernameForm.setValue("newUsername", user?.username || "");
-          purchaseLimitForm.setValue("limit", account.purchaseLimitPerTransaction === null || account.purchaseLimitPerTransaction === undefined ? undefined : account.purchaseLimitPerTransaction);
+      if (user && account) {
+          const currentUserDetails = mockUsers.find(u => u.id === user.id);
+          usernameForm.reset({ newUsername: currentUserDetails?.username || "" });
+          purchaseLimitForm.reset({ limit: account.purchaseLimitPerTransaction === null || account.purchaseLimitPerTransaction === undefined ? undefined : account.purchaseLimitPerTransaction });
+      } else if (user) { // account might be null initially or user data might be available before account
+          const currentUserDetails = mockUsers.find(u => u.id === user.id);
+          usernameForm.reset({ newUsername: currentUserDetails?.username || "" });
+          purchaseLimitForm.reset({ limit: undefined });
       }
   }, [account, user, usernameForm, purchaseLimitForm]);
 
 
-  const handleAction = async (actionName: string, actionFn: () => Promise<{success: boolean, message: string}>, formToReset?: any) => {
+  const handleAction = async (
+    actionName: string, 
+    actionFn: () => Promise<{success: boolean, message: string, newDetails?: Account}>, 
+    formToResetType?: 'username' | 'password' | 'purchaseLimit' | null
+  ) => {
     setIsLoading(prev => ({ ...prev, [actionName]: true }));
     setFormResults(prev => ({...prev, [actionName]: null}));
-    const result = await actionFn();
-    setIsLoading(prev => ({ ...prev, [actionName]: false }));
+    
+    const result = await actionFn(); // Action mutates mockData
+
+    // Fetch the latest account details from mockData and update the local state
+    if (user) {
+        const updatedUserAccount = getAccountByUserId(user.id);
+        setAccount(updatedUserAccount ? { ...updatedUserAccount } : null);
+    }
+
+    setIsLoading(prev => ({ ...prev, [actionName]: false })); // Set loading to false AFTER account state is potentially updated
     setFormResults(prev => ({...prev, [actionName]: result}));
 
     if (result.success) {
       toast({ title: "Success!", description: result.message });
-      fetchAccountDetails(); // Refresh account details
-      if (formToReset && typeof formToReset.reset === 'function') {
-        if (actionName === 'password') { // Special handling for password form reset
-            formToReset.reset({ newPassword: "", confirmNewPassword: "" });
-        } else if (actionName === 'purchaseLimit') {
-            // fetchAccountDetails will call setValue for limit, so no explicit formToReset needed here after fetch.
-        }
-         else {
-            formToReset.reset();
-        }
+      
+      // Specific form resets if needed
+      if (formToResetType === 'password') {
+        passwordForm.reset({ newPassword: "", confirmNewPassword: "" });
       }
+      // usernameForm and purchaseLimitForm are reset by the useEffect watching `account`
+      // Toggles (freeze, barcode) and regenerateCard don't have forms in this way.
+      // If username action was successful, the useEffect will handle resetting usernameForm.
     } else {
       toast({ title: "Error", description: result.message, variant: "destructive" });
     }
@@ -116,32 +125,32 @@ export default function CardSettingsPage() {
 
   const onUsernameSubmit: SubmitHandler<z.infer<typeof updateUsernameSchema>> = async (data) => {
     if (!user) return;
-    await handleAction("username", () => updateUsernameAction({ userId: user.id, newUsername: data.newUsername }), usernameForm);
+    await handleAction("username", () => updateUsernameAction({ userId: user.id, newUsername: data.newUsername }), 'username');
   };
 
   const onPasswordSubmit: SubmitHandler<z.infer<typeof updatePasswordSchema>> = async (data) => {
     if (!user) return;
-    await handleAction("password", () => updatePasswordAction({ userId: user.id, newPassword: data.newPassword }), passwordForm);
+    await handleAction("password", () => updatePasswordAction({ userId: user.id, newPassword: data.newPassword }), 'password');
   };
 
   const onRegenerateCard = async () => {
     if (!user) return;
-    await handleAction("regenerateCard", () => regenerateCardDetailsAction({ userId: user.id }));
+    await handleAction("regenerateCard", () => regenerateCardDetailsAction({ userId: user.id }), null);
   };
 
   const onToggleFreeze = async (freeze: boolean) => {
     if (!user) return;
-    await handleAction("toggleFreeze", () => toggleFreezeCardAction({ userId: user.id, freeze }));
+    await handleAction("toggleFreeze", () => toggleFreezeCardAction({ userId: user.id, freeze }), null);
   };
   
   const onPurchaseLimitSubmit: SubmitHandler<z.infer<typeof purchaseLimitSchema>> = async (data) => {
     if (!user) return;
-    await handleAction("purchaseLimit", () => setPurchaseLimitAction({ userId: user.id, limit: data.limit }), purchaseLimitForm);
+    await handleAction("purchaseLimit", () => setPurchaseLimitAction({ userId: user.id, limit: data.limit }), 'purchaseLimit');
   };
 
   const onToggleBarcodeDisabled = async (disable: boolean) => {
     if (!user) return;
-    await handleAction("toggleBarcode", () => toggleBarcodeDisabledAction({ userId: user.id, disable }));
+    await handleAction("toggleBarcode", () => toggleBarcodeDisabledAction({ userId: user.id, disable }), null);
   };
 
   if (!user || !account) {
@@ -232,7 +241,7 @@ export default function CardSettingsPage() {
                     <AlertDialog>
                         <AlertDialogTrigger asChild>
                         <Button variant="outline" size="sm" disabled={isLoading["regenerateCard"]}>
-                            {isLoading["regenerateCard"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <RefreshCw />}
+                            {isLoading["regenerateCard"] ? <Loader2 className="animate-spin h-4 w-4 mr-2" /> : <RefreshCw className="h-4 w-4" />} 
                             Re-Issue Card
                         </Button>
                         </AlertDialogTrigger>
@@ -274,7 +283,7 @@ export default function CardSettingsPage() {
             <div className="space-y-4">
                 <Form {...purchaseLimitForm}>
                     <form onSubmit={purchaseLimitForm.handleSubmit(onPurchaseLimitSubmit)} className="p-4 border rounded-md space-y-3">
-                        <RHFFormLabel className="text-md font-medium flex items-center gap-2"><BarChartBig /> Per Transaction Purchase Limit</RHFFormLabel>
+                        <RHFFormLabel className="text-md font-medium flex items-center gap-2"><BarChartBig className="h-4 w-4"/> Per Transaction Purchase Limit</RHFFormLabel> 
                         {renderFormResult("purchaseLimit")}
                         <FormField control={purchaseLimitForm.control} name="limit" render={({ field }) => (
                             <FormItem>
@@ -322,5 +331,4 @@ export default function CardSettingsPage() {
     </div>
   );
 }
-
     
