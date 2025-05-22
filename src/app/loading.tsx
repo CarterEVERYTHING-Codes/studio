@@ -7,12 +7,12 @@ export default function Loading() {
   // replacing the {children} part of that layout during navigation.
   return (
     <div 
-      className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/90 backdrop-blur-sm"
+      className="flex flex-1 flex-col items-center justify-center py-12" // Changed from fixed to in-flow
       aria-live="polite" 
       aria-busy="true"
     >
-      <Loader2 className="h-16 w-16 animate-spin text-primary" />
-      <p className="mt-4 text-lg font-medium text-foreground">Loading page, please wait...</p>
+      <Loader2 className="h-12 w-12 animate-spin text-primary" />
+      <p className="mt-4 text-md font-medium text-muted-foreground">Loading page...</p>
     </div>
   );
 }
