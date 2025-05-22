@@ -4,7 +4,7 @@ import { LoadingLink } from "@/components/shared/LoadingLink";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { mockAccounts } from "@/lib/mock-data"; 
+import { mockAccounts, allTransactions } from "@/lib/mock-data"; // Added allTransactions
 import { CreditCard, History, Wallet, UserCircle, Send, BellRing, HandCoins, Settings } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Account } from "@/lib/types";
@@ -22,7 +22,7 @@ export default function UserDashboardPage() {
       }
       setIsLoading(false);
     }
-  }, [user]);
+  }, [user, mockAccounts, allTransactions]); // Added mockAccounts & allTransactions to deps for balance refresh
 
   if (isLoading) {
     return <div className="text-center py-10">Loading account details...</div>;
@@ -40,7 +40,7 @@ export default function UserDashboardPage() {
             <UserCircle className="h-8 w-8 text-primary" />
             <CardTitle className="text-3xl font-bold">User Dashboard</CardTitle>
           </div>
-          <CardDescription>Welcome, {user?.name || "User"}! View your account details and activity.</CardDescription>
+          <CardDescription>Welcome, {user?.name || "User"}! Manage your account, view card details, and make transactions.</CardDescription>
         </CardHeader>
         <CardContent>
             <div className="bg-primary/10 p-6 rounded-lg">
@@ -55,43 +55,43 @@ export default function UserDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <DashboardActionCard
           title="View Card Info"
-          description="Access your digital card number, CVV, expiry, and barcode."
+          description="See your digital card number, CVV, expiry date, and payment barcode."
           href="/user/card-info"
           icon={<CreditCard className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
         <DashboardActionCard
           title="View Transactions"
-          description="Check your detailed transaction history for all activities."
+          description="Check the history of all your payments, transfers, and deposits."
           href="/user/transactions"
           icon={<History className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
         <DashboardActionCard
           title="View Balance"
-          description="See your current account balance and manage your funds."
+          description="Get a quick overview of your current funds and recent financial activity."
           href="/user/balance" 
           icon={<Wallet className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
          <DashboardActionCard
           title="Transfer Money"
-          description="Send funds to another user's account."
+          description="Send money directly to another user's account. They will need to approve it."
           href="/user/transfer"
           icon={<Send className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
          <DashboardActionCard
           title="Request Money"
-          description="Ask another user to send you funds."
+          description="Ask another user to send funds to your account. They will need to approve the payment."
           href="/user/request-money"
           icon={<HandCoins className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
         <DashboardActionCard
           title="Review Pending Items"
-          description="Approve/reject incoming transfers or payment requests."
+          description="Approve or reject incoming money transfers or payment requests from others."
           href="/user/review-transfers"
           icon={<BellRing className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
         <DashboardActionCard
           title="Card Settings"
-          description="Manage your card preferences, security, and limits."
+          description="Manage your card preferences, update security details, and set spending limits."
           href="/user/card-settings"
           icon={<Settings className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />

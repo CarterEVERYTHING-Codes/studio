@@ -13,8 +13,8 @@ import { useToast } from "@/hooks/use-toast";
 import { issueNewAccountAction } from "@/actions/adminActions";
 import { useState } from "react";
 import type { Account } from "@/lib/types";
-import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle, User, KeyRound, AlertCircle } from "lucide-react";
-import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
+import { ArrowLeft, CheckCircle, CreditCard, Loader2, XCircle, User, KeyRound, Info } from "lucide-react"; // Changed AlertCircle to Info
+import { LoadingLink } from "@/components/shared/LoadingLink";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const issueAccountSchema = z.object({
@@ -101,7 +101,7 @@ export default function IssueAccountPage() {
         <CardHeader>
           <CardTitle className="text-2xl flex items-center gap-2"><CreditCard className="text-primary"/> Issue New Account</CardTitle>
           <CardDescription>
-            Enter the new account holder's details, including username and password. Card number, CVV, expiry, and barcode will be generated automatically.
+            Enter the new account holder's information, including their desired username and password. A unique digital card will be generated for them.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -150,6 +150,7 @@ export default function IssueAccountPage() {
                       <FormControl>
                         <Input placeholder="Enter desired username" {...field} />
                       </FormControl>
+                      <FormDescription className="text-xs">The user will use this to log in.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -163,6 +164,7 @@ export default function IssueAccountPage() {
                       <FormControl>
                         <Input type="password" placeholder="Enter a secure password" {...field} />
                       </FormControl>
+                       <FormDescription className="text-xs">The user will use this to log in. They can change it later.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -191,7 +193,7 @@ export default function IssueAccountPage() {
                         onChange={e => field.onChange(e.target.value === '' ? undefined : +e.target.value)}
                         />
                       </FormControl>
-                      <FormDescription>Enter the initial amount to deposit into the account.</FormDescription>
+                      <FormDescription>Enter an amount if you want to add starting funds to the account.</FormDescription>
                       <FormMessage />
                     </FormItem>
                   )}
@@ -206,10 +208,10 @@ export default function IssueAccountPage() {
       </Card>
 
       {issuedDetails && !isLoading && ( 
-        <Card className="max-w-2xl mx-auto mt-8 shadow-lg bg-green-50 border-green-200">
+        <Card className="max-w-2xl mx-auto mt-8 shadow-lg bg-green-50 border-green-200 dark:bg-green-900/30 dark:border-green-700/50">
           <CardHeader>
-            <CardTitle className="text-xl text-green-700 flex items-center gap-2"><CheckCircle /> Account Issued Successfully!</CardTitle>
-            <CardDescription className="text-green-600">
+            <CardTitle className="text-xl text-green-700 dark:text-green-300 flex items-center gap-2"><CheckCircle /> Account Issued Successfully!</CardTitle>
+            <CardDescription className="text-green-600 dark:text-green-400">
               The following account details have been generated for {issuedDetails.account.accountHolderName}:
             </CardDescription>
           </CardHeader>
@@ -222,13 +224,13 @@ export default function IssueAccountPage() {
             <p><strong>Expiry Date:</strong> <span className="font-mono">{issuedDetails.account.expiryDate}</span></p>
             <p><strong>Barcode:</strong> <span className="font-mono">{issuedDetails.account.barcode}</span></p>
             <p><strong>Initial Balance:</strong> ${issuedDetails.account.balance.toFixed(2)}</p>
-            <Alert variant="default" className="bg-primary/10 border-primary/20 text-primary">
-                <AlertCircle className="h-4 w-4" />
+            <Alert variant="default" className="bg-primary/10 border-primary/20 text-primary dark:bg-primary/20 dark:text-primary-foreground/90">
+                <Info className="h-4 w-4" /> {/* Changed from AlertCircle for stylistic consistency */}
                 <AlertTitle>User Credentials</AlertTitle>
                 <AlertDescription>
-                    Please provide the following credentials to the user:
+                    Please provide the following login details to the user:
                     <br /><strong>Username:</strong> <span className="font-mono">{issuedDetails.username}</span>
-                    <br /><strong>Password:</strong> <span className="font-mono">{issuedDetails.passwordForDisplay}</span> (Instruct user to change it if desired)
+                    <br /><strong>Password:</strong> <span className="font-mono">{issuedDetails.passwordForDisplay}</span> (Instruct user to change it later if they wish)
                 </AlertDescription>
             </Alert>
           </CardContent>

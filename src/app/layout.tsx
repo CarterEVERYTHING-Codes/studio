@@ -4,8 +4,9 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { Toaster } from "@/components/ui/toaster";
-import { NavigationProvider } from "@/contexts/NavigationContext"; // Added import
-import { GlobalNavigationLoader } from "@/components/layout/GlobalNavigationLoader"; // Added import
+import { NavigationProvider } from "@/contexts/NavigationContext";
+import { GlobalNavigationLoader } from "@/components/layout/GlobalNavigationLoader";
+import { ThemeProvider } from "next-themes"; // Added import
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -28,17 +29,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning> {/* Added suppressHydrationWarning for next-themes */}
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}
       >
-        <AuthProvider>
-          <NavigationProvider> {/* Added provider */}
-            {children}
-            <GlobalNavigationLoader /> {/* Added loader component */}
-            <Toaster />
-          </NavigationProvider>
-        </AuthProvider>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="system"
+          enableSystem
+          disableTransitionOnChange
+        > {/* Added ThemeProvider */}
+          <AuthProvider>
+            <NavigationProvider>
+              {children}
+              <GlobalNavigationLoader />
+              <Toaster />
+            </NavigationProvider>
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

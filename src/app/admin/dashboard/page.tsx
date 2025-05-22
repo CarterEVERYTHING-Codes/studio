@@ -1,6 +1,6 @@
 
 "use client";
-import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
+import { LoadingLink } from "@/components/shared/LoadingLink"; 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
@@ -21,8 +21,6 @@ export default function AdminDashboardPage() {
             setMainAdminAccountBalance(acc.balance);
         }
     }
-  // Watch for changes in mockAccounts or allTransactions as they can be mutated by actions
-  // Adding dependencies that trigger re-check of balance.
   }, [user, mockAccounts, allTransactions]); 
 
 
@@ -34,7 +32,7 @@ export default function AdminDashboardPage() {
             <UserCog className="h-8 w-8 text-primary" />
             <CardTitle className="text-3xl font-bold">Admin Dashboard</CardTitle>
           </div>
-          <CardDescription>Welcome, {user?.name || "Admin"}! Manage accounts and system operations.</CardDescription>
+          <CardDescription>Welcome, {user?.name || "Admin"}! Here you can manage accounts, view transactions, and perform system operations.</CardDescription>
         </CardHeader>
         {user?.id === MAIN_ADMIN_USER_ID && mainAdminAccountBalance !== null && (
              <CardContent>
@@ -42,12 +40,12 @@ export default function AdminDashboardPage() {
                     <CardHeader>
                         <CardTitle className="text-lg text-green-700 dark:text-green-300">Main Admin Account (Fee Collection)</CardTitle>
                         <CardDescription className="text-green-600 dark:text-green-400">
-                            This account receives all service fees. Balance updates when transactions occur.
+                            This account collects all service fees from transactions. The balance updates as transactions occur.
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <p className="text-2xl font-bold text-green-800 dark:text-green-200">Balance: ${mainAdminAccountBalance.toFixed(2)}</p>
-                        <p className="text-xs text-muted-foreground mt-1">View detailed transactions in "All System Transactions".</p>
+                        <p className="text-xs text-muted-foreground mt-1">Check "All System Transactions" to see detailed fee records.</p>
                     </CardContent>
                 </Card>
             </CardContent>
@@ -57,32 +55,32 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <DashboardActionCard
           title="Issue New Account"
-          description="Create new user accounts with generated card details."
+          description="Set up a new account for a student or staff member, including their login details."
           href="/admin/issue-account"
           icon={<CreditCard className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
         <DashboardActionCard
           title="View All Transactions"
-          description="Monitor all transactions across the platform for auditing."
+          description="See a complete log of every transaction made on the platform for auditing and review."
           href="/admin/view-transactions"
           icon={<ListChecks className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
          <DashboardActionCard
           title="View System Accounts"
-          description="Browse and manage all user, business, and admin accounts."
+          description="Look up and manage all user, business, and admin accounts in the system."
           href="/admin/view-accounts" 
           icon={<FileSearch className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
         <DashboardActionCard
           title="Manage Funds"
-          description="Deposit or withdraw funds from any account (use with caution)."
+          description="Carefully add or remove funds from any account. This action is powerful and should be used with caution."
           href="/admin/manage-funds"
           icon={<Landmark className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
         {user?.id === MAIN_ADMIN_USER_ID && ( 
             <DashboardActionCard
             title="Add New Admin"
-            description="Delegate administrative tasks by creating new admin accounts."
+            description="Create new administrator accounts to help manage the platform."
             href="/admin/add-admin"
             icon={<Users className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
             />
@@ -101,7 +99,7 @@ interface DashboardActionCardProps {
 
 function DashboardActionCard({ title, description, href, icon }: DashboardActionCardProps) {
   return (
-    <LoadingLink href={href} passHref className="h-full"> {/* Changed Link to LoadingLink and ensure it takes full height */}
+    <LoadingLink href={href} passHref className="h-full"> 
       <Card className="hover:shadow-xl transition-shadow duration-300 group cursor-pointer h-full flex flex-col">
         <CardHeader className="flex-shrink-0">
           <div className="flex items-center justify-center mb-4 bg-primary/10 rounded-full p-4 w-20 h-20 mx-auto">
@@ -113,7 +111,7 @@ function DashboardActionCard({ title, description, href, icon }: DashboardAction
           <p className="text-sm text-muted-foreground text-center">{description}</p>
         </CardContent>
         <div className="p-6 pt-0 mt-auto">
-            <Button variant="outline" className="w-full" tabIndex={-1}> {/* Added tabIndex -1 as link handles focus */}
+            <Button variant="outline" className="w-full" tabIndex={-1}> 
                 Go to {title.split(' ')[0]}
             </Button>
         </div>

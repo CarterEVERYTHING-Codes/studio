@@ -1,11 +1,11 @@
 
 "use client";
-import { LoadingLink } from "@/components/shared/LoadingLink"; // Changed import
+import { LoadingLink } from "@/components/shared/LoadingLink"; 
 import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
-import { Briefcase, ShoppingCart, Landmark, Users, History, DollarSign } from "lucide-react";
-import { mockAccounts, CAMPUS_STORE_BUSINESS_ACCOUNT_ID } from "@/lib/mock-data";
+import { Briefcase, ShoppingCart, DollarSign } from "lucide-react"; // Removed unused icons
+import { mockAccounts } from "@/lib/mock-data"; // Removed unused CAMPUS_STORE_BUSINESS_ACCOUNT_ID
 import { useEffect, useState } from "react";
 import type { Account } from "@/lib/types";
 
@@ -16,13 +16,10 @@ export default function BusinessDashboardPage() {
 
   useEffect(() => {
     if (user) {
-      // Assuming the business user's account ID is known or derived (e.g., CAMPUS_STORE_BUSINESS_ACCOUNT_ID)
-      // Or, if the business user ID from auth context directly maps to an account ID.
-      // For this app, we've linked businessUserId to an account in mock-data.
       const foundAccount = mockAccounts.find(acc => acc.userId === user.id);
       setBusinessAccount(foundAccount || null);
     }
-  }, [user]);
+  }, [user, mockAccounts]); // Added mockAccounts to dependency array for balance updates
 
   return (
     <div className="space-y-8">
@@ -32,7 +29,7 @@ export default function BusinessDashboardPage() {
             <Briefcase className="h-8 w-8 text-primary" />
             <CardTitle className="text-3xl font-bold">Business Dashboard</CardTitle>
           </div>
-          <CardDescription>Welcome, {user?.name || "Business User"}! Process sales and manage your business funds.</CardDescription>
+          <CardDescription>Welcome, {user?.name || "Business User"}! Process sales and view your business's financial summary.</CardDescription>
         </CardHeader>
         {businessAccount && (
             <CardContent>
@@ -49,13 +46,13 @@ export default function BusinessDashboardPage() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <DashboardActionCard
           title="Make Purchase"
-          description="Process payments for customers using card or barcode."
+          description="Charge customers for goods or services using their card or barcode."
           href="/business/make-purchase"
           icon={<ShoppingCart className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
         <DashboardActionCard
           title="Manage Money"
-          description="View your transaction history and current business balance."
+          description="Review your sales history and see your current business account balance."
           href="/business/manage-money"
           icon={<DollarSign className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
@@ -73,7 +70,7 @@ interface DashboardActionCardProps {
 
 function DashboardActionCard({ title, description, href, icon }: DashboardActionCardProps) {
   return (
-    <LoadingLink href={href} passHref className="h-full"> {/* Changed Link to LoadingLink */}
+    <LoadingLink href={href} passHref className="h-full"> 
       <Card className="hover:shadow-xl transition-shadow duration-300 group cursor-pointer h-full flex flex-col">
         <CardHeader className="flex-shrink-0">
           <div className="flex items-center justify-center mb-4 bg-primary/10 rounded-full p-4 w-20 h-20 mx-auto">
@@ -85,7 +82,7 @@ function DashboardActionCard({ title, description, href, icon }: DashboardAction
           <p className="text-sm text-muted-foreground text-center">{description}</p>
         </CardContent>
         <div className="p-6 pt-0 mt-auto">
-           <Button variant="outline" className="w-full" tabIndex={-1}> {/* Added tabIndex -1 */}
+           <Button variant="outline" className="w-full" tabIndex={-1}> 
                 Go to {title.split(' ')[0]}
             </Button>
         </div>
