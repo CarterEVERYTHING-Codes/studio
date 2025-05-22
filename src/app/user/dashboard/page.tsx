@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
 import { useAuth } from "@/hooks/useAuth";
 import { mockAccounts } from "@/lib/mock-data"; // Simulating data fetch
-import { CreditCard, History, Wallet, UserCircle, Send, BellRing } from "lucide-react";
+import { CreditCard, History, Wallet, UserCircle, Send, BellRing, HandCoins } from "lucide-react";
 import { useEffect, useState } from "react";
 import type { Account } from "@/lib/types";
 
@@ -78,9 +78,15 @@ export default function UserDashboardPage() {
           href="/user/transfer"
           icon={<Send className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
+         <DashboardActionCard
+          title="Request Money"
+          description="Ask another user to send you funds."
+          href="/user/request-money"
+          icon={<HandCoins className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
+        />
         <DashboardActionCard
-          title="Review Incoming Transfers"
-          description="Approve or reject pending money transfers from other users."
+          title="Review Pending Items"
+          description="Approve/reject incoming transfers or payment requests."
           href="/user/review-transfers"
           icon={<BellRing className="h-10 w-10 text-primary group-hover:scale-110 transition-transform" />}
         />
@@ -118,3 +124,4 @@ function DashboardActionCard({ title, description, href, icon }: DashboardAction
     </Link>
   );
 }
+
